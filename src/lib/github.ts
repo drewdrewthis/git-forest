@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import type { PrInfo } from "./types.js";
+import type { PrInfo, ReviewDecision } from "./types.js";
 
 export async function getPrForBranch(
   branch: string
@@ -13,7 +13,7 @@ export async function getPrForBranch(
       "--state",
       "all",
       "--json",
-      "number,state,title,url",
+      "number,state,title,url,reviewDecision",
       "--limit",
       "1",
     ]);
@@ -27,6 +27,7 @@ export async function getPrForBranch(
       state: pr.state.toLowerCase() as PrInfo["state"],
       title: pr.title,
       url: pr.url,
+      reviewDecision: (pr.reviewDecision || "") as ReviewDecision,
     };
   } catch {
     // gh not installed or not authenticated or not a GitHub repo

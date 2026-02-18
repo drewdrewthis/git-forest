@@ -43,7 +43,7 @@ export function WorktreeRow({
         <Text dimColor>(bare)</Text>
       ) : (
         <StatusBadge
-          state={worktree.pr?.state ?? null}
+          pr={worktree.pr}
           loading={worktree.prLoading}
         />
       )}

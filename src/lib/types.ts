@@ -9,9 +9,12 @@ export interface Worktree {
   tmuxAttached: boolean;
 }
 
+export type ReviewDecision = "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | "";
+
 export interface PrInfo {
   number: number;
   state: "open" | "merged" | "closed";
   title: string;
   url: string;
+  reviewDecision: ReviewDecision;
 }
