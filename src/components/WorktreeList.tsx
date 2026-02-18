@@ -133,12 +133,12 @@ export function WorktreeList({
   return (
     <Box flexDirection="column">
       <Box borderStyle="round" borderColor="green" paddingX={4} paddingY={1} flexDirection="column" alignItems="center">
-        <Text color="green">{"    *          *       *"}</Text>
-        <Text color="green">{"   ***        ***     ***"}</Text>
-        <Text color="green">{"  *****    * *****   *****"}</Text>
-        <Text color="green">{" *******  *** ***   *******"}</Text>
-        <Text color="green">{"    |      *****       |"}</Text>
-        <Text color="green">{"    |        |         |"}</Text>
+        <Text color="green">{"    *         *        *"}</Text>
+        <Text color="green">{"   ***       ***      ***"}</Text>
+        <Text color="green">{"  *****     *****    *****"}</Text>
+        <Text color="green">{" *******   *******  *******"}</Text>
+        <Text color="green">{"    |         |        |"}</Text>
+        <Text color="green">{"    |         |        |"}</Text>
         <Text> </Text>
         <Text bold color="greenBright">{"g i t   f o r e s t"}</Text>
       </Box>
