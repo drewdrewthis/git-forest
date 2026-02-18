@@ -6,6 +6,7 @@ import { ConfirmDelete } from "./ConfirmDelete.js";
 import { writeFileSync, unlinkSync } from "node:fs";
 import { CD_TARGET_FILE, TMUX_CMD_FILE } from "../lib/paths.js";
 import { getTmuxCommand } from "../lib/tmux.js";
+import { openUrl } from "../lib/browser.js";
 import type { Worktree } from "../lib/types.js";
 
 function cleanTempFiles() {
@@ -36,6 +37,8 @@ export function WorktreeList({
   const branchWidth = Math.min(30, Math.floor(cols * 0.25));
   const pathWidth = Math.min(50, Math.floor(cols * 0.45));
 
+  const selected = worktrees[cursor];
+
   useInput((input, key) => {
     if (confirmDelete) return;
 
@@ -44,7 +47,6 @@ export function WorktreeList({
     } else if (key.downArrow) {
       setCursor((c) => Math.min(worktrees.length - 1, c + 1));
     } else if (key.return) {
-      const selected = worktrees[cursor];
       if (selected) {
         cleanTempFiles();
         try {
@@ -55,7 +57,6 @@ export function WorktreeList({
         exit();
       }
     } else if (input === "t") {
-      const selected = worktrees[cursor];
       if (selected && !selected.isBare) {
         const sessionName = selected.branch?.replace(/\//g, "-") || selected.path.split("/").pop() || "forest";
         const cmd = getTmuxCommand(selected.path, sessionName, selected.tmuxSession);
@@ -67,8 +68,11 @@ export function WorktreeList({
         }
         exit();
       }
+    } else if (input === "o") {
+      if (selected?.pr?.url) {
+        openUrl(selected.pr.url);
+      }
     } else if (input === "d") {
-      const selected = worktrees[cursor];
       if (selected && !selected.isBare) {
         setConfirmDelete(selected);
       }
@@ -111,13 +115,13 @@ export function WorktreeList({
     );
   }
 
+  const hasPr = !!selected?.pr?.url;
+
   return (
     <Box flexDirection="column">
-      <Text bold>forest</Text>
-      <Text dimColor>
-        ↑/↓ navigate  enter cd  t tmux  d delete  c cleanup  r refresh  q quit
-      </Text>
-      <Text> </Text>
+      <Box marginBottom={1}>
+        <Text bold color="green">Welcome to the Git Forest</Text>
+      </Box>
       {worktrees.map((wt, i) => (
         <WorktreeRow
           key={wt.path}
@@ -127,6 +131,31 @@ export function WorktreeList({
           branchWidth={branchWidth}
         />
       ))}
+      <Box marginTop={1} flexDirection="row" gap={1}>
+        <KeyHint label="enter" desc="cd" />
+        <KeyHint label="t" desc="tmux" />
+        <KeyHint label="o" desc="open pr" dimmed={!hasPr} />
+        <KeyHint label="d" desc="delete" />
+        <KeyHint label="c" desc="cleanup" />
+        <KeyHint label="r" desc="refresh" />
+        <KeyHint label="q" desc="quit" />
+      </Box>
     </Box>
+  );
+}
+
+function KeyHint({ label, desc, dimmed }: { label: string; desc: string; dimmed?: boolean }) {
+  if (dimmed) {
+    return (
+      <Text dimColor>
+        <Text>{label}</Text> {desc}
+      </Text>
+    );
+  }
+  return (
+    <Text>
+      <Text color="cyan" bold>{label}</Text>
+      <Text dimColor> {desc}</Text>
+    </Text>
   );
 }
