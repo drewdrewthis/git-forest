@@ -4,6 +4,7 @@ import Spinner from "ink-spinner";
 import type { Worktree } from "../lib/types.js";
 import { removeWorktree } from "../lib/git.js";
 import { killTmuxSession } from "../lib/tmux.js";
+import { tildify } from "../lib/paths.js";
 
 interface Props {
   worktree: Worktree;
@@ -15,13 +16,12 @@ export function ConfirmDelete({ worktree, onDone, onCancel }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useInput(async (_input, key) => {
+  useInput(async (input, key) => {
     if (deleting) return;
 
-    if (_input === "y" || _input === "Y") {
+    if (input === "y" || input === "Y") {
       setDeleting(true);
       try {
-        // Kill tmux session first if one exists
         if (worktree.tmuxSession) {
           try {
             await killTmuxSession(worktree.tmuxSession);
@@ -31,8 +31,7 @@ export function ConfirmDelete({ worktree, onDone, onCancel }: Props) {
         }
         await removeWorktree(worktree.path);
         onDone();
-      } catch (err) {
-        // Try with force
+      } catch {
         try {
           await removeWorktree(worktree.path, true);
           onDone();
@@ -42,12 +41,12 @@ export function ConfirmDelete({ worktree, onDone, onCancel }: Props) {
           );
         }
       }
-    } else if (_input === "n" || _input === "N" || key.escape) {
+    } else if (input === "n" || input === "N" || key.escape) {
       onCancel();
     }
   });
 
-  const displayPath = worktree.path.replace(process.env.HOME || "", "~");
+  const displayPath = tildify(worktree.path);
 
   if (error) {
     return (

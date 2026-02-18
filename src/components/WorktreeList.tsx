@@ -4,7 +4,7 @@ import Spinner from "ink-spinner";
 import { WorktreeRow } from "./WorktreeRow.js";
 import { ConfirmDelete } from "./ConfirmDelete.js";
 import { writeFileSync, unlinkSync } from "node:fs";
-import { CD_TARGET_FILE } from "../lib/shell.js";
+import { CD_TARGET_FILE } from "../lib/paths.js";
 import type { Worktree } from "../lib/types.js";
 
 interface Props {
@@ -30,7 +30,7 @@ export function WorktreeList({
   const branchWidth = Math.min(30, Math.floor(cols * 0.25));
   const pathWidth = Math.min(50, Math.floor(cols * 0.45));
 
-  useInput((_input, key) => {
+  useInput((input, key) => {
     if (confirmDelete) return;
 
     if (key.upArrow) {
@@ -40,7 +40,6 @@ export function WorktreeList({
     } else if (key.return) {
       const selected = worktrees[cursor];
       if (selected) {
-        // Write path so the shell wrapper can cd
         try {
           writeFileSync(CD_TARGET_FILE, selected.path);
         } catch {
@@ -48,17 +47,16 @@ export function WorktreeList({
         }
         exit();
       }
-    } else if (_input === "d") {
+    } else if (input === "d") {
       const selected = worktrees[cursor];
       if (selected && !selected.isBare) {
         setConfirmDelete(selected);
       }
-    } else if (_input === "c") {
+    } else if (input === "c") {
       onCleanup();
-    } else if (_input === "r") {
+    } else if (input === "r") {
       onRefresh();
-    } else if (_input === "q") {
-      // Clean up any stale cd target
+    } else if (input === "q") {
       try {
         unlinkSync(CD_TARGET_FILE);
       } catch {

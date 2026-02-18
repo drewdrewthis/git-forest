@@ -50,8 +50,3 @@ export async function removeWorktree(
   if (force) args.push("--force", "--force");
   await execa("git", args);
 }
-
-export function getGitRoot(): string {
-  const { stdout } = execaSync("git", ["rev-parse", "--show-toplevel"]);
-  return stdout.trim();
-}

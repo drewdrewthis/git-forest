@@ -4,6 +4,7 @@ import Spinner from "ink-spinner";
 import type { Worktree } from "../lib/types.js";
 import { removeWorktree } from "../lib/git.js";
 import { killTmuxSession } from "../lib/tmux.js";
+import { tildify } from "../lib/paths.js";
 
 interface Props {
   worktrees: Worktree[];
@@ -20,14 +21,14 @@ export function Cleanup({ worktrees, onDone }: Props) {
   const [deleted, setDeleted] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  useInput(async (_input, key) => {
+  useInput(async (input, key) => {
     if (deleting) return;
 
     if (key.upArrow) {
       setCursor((c) => Math.max(0, c - 1));
     } else if (key.downArrow) {
       setCursor((c) => Math.min(merged.length - 1, c + 1));
-    } else if (_input === " ") {
+    } else if (input === " ") {
       const path = merged[cursor]?.path;
       if (path) {
         setSelected((prev) => {
@@ -45,7 +46,6 @@ export function Cleanup({ worktrees, onDone }: Props) {
       setDeleting(true);
       for (const path of selected) {
         try {
-          // Kill associated tmux session first
           const wt = merged.find((w) => w.path === path);
           if (wt?.tmuxSession) {
             try { await killTmuxSession(wt.tmuxSession); } catch { /* ok */ }
@@ -59,12 +59,8 @@ export function Cleanup({ worktrees, onDone }: Props) {
         }
       }
       setDeleting(false);
-    } else if (_input === "q" || key.escape) {
-      if (deleted.length > 0) {
-        onDone();
-      } else {
-        onDone();
-      }
+    } else if (input === "q" || key.escape) {
+      onDone();
     }
   });
 
@@ -86,14 +82,14 @@ export function Cleanup({ worktrees, onDone }: Props) {
         </Text>
         {deleted.map((p) => (
           <Text key={p} color="green">
-            ✓ {p.replace(process.env.HOME || "", "~")}
+            ✓ {tildify(p)}
           </Text>
         ))}
       </Box>
     );
   }
 
-  if (deleted.length > 0 && !deleting) {
+  if (deleted.length > 0) {
     return (
       <Box flexDirection="column">
         <Text color="green" bold>
@@ -101,7 +97,7 @@ export function Cleanup({ worktrees, onDone }: Props) {
         </Text>
         {deleted.map((p) => (
           <Text key={p} color="green">
-            ✓ {p.replace(process.env.HOME || "", "~")}
+            ✓ {tildify(p)}
           </Text>
         ))}
         {error && <Text color="red">{error}</Text>}
@@ -118,13 +114,13 @@ export function Cleanup({ worktrees, onDone }: Props) {
       </Text>
       <Text> </Text>
       {merged.map((w, i) => {
-        const isSelected = cursor === i;
+        const isCursor = cursor === i;
         const isChecked = selected.has(w.path);
-        const displayPath = w.path.replace(process.env.HOME || "", "~");
+        const displayPath = tildify(w.path);
         return (
           <Box key={w.path}>
-            <Text color={isSelected ? "cyan" : undefined}>
-              {isSelected ? "▸" : " "} {isChecked ? "[✓]" : "[ ]"}{" "}
+            <Text color={isCursor ? "cyan" : undefined}>
+              {isCursor ? "▸" : " "} {isChecked ? "[✓]" : "[ ]"}{" "}
               {displayPath}
             </Text>
             <Text color="yellow" dimColor>

@@ -1,12 +1,11 @@
-export const CD_TARGET_FILE = "/tmp/git-forest-cd-target";
-
 export function getShellFunction(): string {
   return `# git-forest - git worktree manager
 forest() {
+  local cdfile="\${TMPDIR:-/tmp}/git-forest-cd-target-$(id -u)"
   command git-forest "$@"
   local target
-  target=$(cat /tmp/git-forest-cd-target 2>/dev/null)
-  rm -f /tmp/git-forest-cd-target
+  target=$(cat "$cdfile" 2>/dev/null)
+  rm -f "$cdfile"
   if [ -n "$target" ] && [ -d "$target" ]; then
     cd "$target" || return
   fi

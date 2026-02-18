@@ -1,5 +1,6 @@
 import { Box, Text } from "ink";
 import { StatusBadge } from "./StatusBadge.js";
+import { tildify } from "../lib/paths.js";
 import type { Worktree } from "../lib/types.js";
 
 interface Props {
@@ -16,10 +17,7 @@ export function WorktreeRow({
   branchWidth,
 }: Props) {
   const pointer = isSelected ? "▸" : " ";
-  const displayPath = worktree.path.replace(
-    process.env.HOME || "",
-    "~"
-  );
+  const displayPath = tildify(worktree.path);
 
   return (
     <Box>
@@ -34,7 +32,7 @@ export function WorktreeRow({
       <Text> </Text>
       <Box width={branchWidth}>
         <Text
-          color={isSelected ? "yellow" : "yellow"}
+          color="yellow"
           dimColor={!isSelected}
           wrap="truncate"
         >

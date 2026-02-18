@@ -6,11 +6,20 @@
   "bin": {
     "git-forest": "./dist/cli.js"
   },
-  "keywords": ["git", "worktree", "tui", "cli", "tmux", "ink", "react"],
+  "keywords": [
+    "git",
+    "worktree",
+    "tui",
+    "cli",
+    "tmux",
+    "ink",
+    "react"
+  ],
   "license": "MIT",
   "scripts": {
     "dev": "tsx src/cli.tsx",
     "build": "tsc",
+    "test": "vitest run",
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
@@ -24,6 +33,7 @@
     "@types/node": "^25.2.3",
     "@types/react": "^19.0.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
   }
 }
