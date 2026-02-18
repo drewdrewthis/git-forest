@@ -2,8 +2,10 @@ export function getShellFunction(): string {
   return `# git-forest - git worktree manager
 forest() {
   local uid=$(id -u)
-  local cdfile="\${TMPDIR:-/tmp}/git-forest-cd-target-$uid"
-  local tmuxfile="\${TMPDIR:-/tmp}/git-forest-tmux-cmd-$uid"
+  local tmpbase="\${TMPDIR:-/tmp}"
+  tmpbase="\${tmpbase%/}"
+  local cdfile="$tmpbase/git-forest-cd-target-$uid"
+  local tmuxfile="$tmpbase/git-forest-tmux-cmd-$uid"
   command git-forest "$@"
   local target tmuxcmd
   target=$(cat "$cdfile" 2>/dev/null)
