@@ -12,6 +12,8 @@ forest() {
   tmuxcmd=$(cat "$tmuxfile" 2>/dev/null)
   rm -f "$cdfile" "$tmuxfile"
   if [ -n "$tmuxcmd" ]; then
+    # eval is safe: content is written by git-forest via getTmuxCommand(),
+    # file is per-UID (mode 0600), and deleted immediately after reading
     eval "$tmuxcmd"
   elif [ -n "$target" ] && [ -d "$target" ]; then
     cd "$target" || return

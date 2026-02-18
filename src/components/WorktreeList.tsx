@@ -50,9 +50,9 @@ export function WorktreeList({
       if (selected) {
         cleanTempFiles();
         try {
-          writeFileSync(CD_TARGET_FILE, selected.path);
+          writeFileSync(CD_TARGET_FILE, selected.path, { mode: 0o600 });
         } catch {
-          // ignore
+          // tmp may be full or read-only; cd just won't happen
         }
         exit();
       }
@@ -62,9 +62,9 @@ export function WorktreeList({
         const cmd = getTmuxCommand(selected.path, sessionName, selected.tmuxSession);
         cleanTempFiles();
         try {
-          writeFileSync(TMUX_CMD_FILE, cmd);
+          writeFileSync(TMUX_CMD_FILE, cmd, { mode: 0o600 });
         } catch {
-          // ignore
+          // tmp may be full or read-only; tmux just won't launch
         }
         exit();
       }
