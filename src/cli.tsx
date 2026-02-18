@@ -14,6 +14,7 @@ const cli = meow(
   Navigation
     ↑/↓     Select worktree
     enter   cd into selected worktree
+    t       tmux into worktree (attach or create session)
     d       Delete selected worktree
     c       Cleanup merged worktrees
     r       Refresh list

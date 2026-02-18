@@ -51,3 +51,18 @@ export function findSessionForWorktree(
 export async function killTmuxSession(sessionName: string): Promise<void> {
   await execa("tmux", ["kill-session", "-t", sessionName]);
 }
+
+export function getTmuxCommand(
+  worktreePath: string,
+  sessionName: string,
+  existingSession: string | null
+): string {
+  if (existingSession) {
+    return `tmux attach-session -t ${shellEscape(existingSession)}`;
+  }
+  return `tmux new-session -s ${shellEscape(sessionName)} -c ${shellEscape(worktreePath)}`;
+}
+
+function shellEscape(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`;
+}

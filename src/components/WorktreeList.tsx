@@ -4,8 +4,14 @@ import Spinner from "ink-spinner";
 import { WorktreeRow } from "./WorktreeRow.js";
 import { ConfirmDelete } from "./ConfirmDelete.js";
 import { writeFileSync, unlinkSync } from "node:fs";
-import { CD_TARGET_FILE } from "../lib/paths.js";
+import { CD_TARGET_FILE, TMUX_CMD_FILE } from "../lib/paths.js";
+import { getTmuxCommand } from "../lib/tmux.js";
 import type { Worktree } from "../lib/types.js";
+
+function cleanTempFiles() {
+  try { unlinkSync(CD_TARGET_FILE); } catch { /* ok */ }
+  try { unlinkSync(TMUX_CMD_FILE); } catch { /* ok */ }
+}
 
 interface Props {
   worktrees: Worktree[];
@@ -40,8 +46,22 @@ export function WorktreeList({
     } else if (key.return) {
       const selected = worktrees[cursor];
       if (selected) {
+        cleanTempFiles();
         try {
           writeFileSync(CD_TARGET_FILE, selected.path);
+        } catch {
+          // ignore
+        }
+        exit();
+      }
+    } else if (input === "t") {
+      const selected = worktrees[cursor];
+      if (selected && !selected.isBare) {
+        const sessionName = selected.branch?.replace(/\//g, "-") || selected.path.split("/").pop() || "forest";
+        const cmd = getTmuxCommand(selected.path, sessionName, selected.tmuxSession);
+        cleanTempFiles();
+        try {
+          writeFileSync(TMUX_CMD_FILE, cmd);
         } catch {
           // ignore
         }
@@ -57,11 +77,7 @@ export function WorktreeList({
     } else if (input === "r") {
       onRefresh();
     } else if (input === "q") {
-      try {
-        unlinkSync(CD_TARGET_FILE);
-      } catch {
-        // ignore
-      }
+      cleanTempFiles();
       exit();
     }
   });
@@ -99,7 +115,7 @@ export function WorktreeList({
     <Box flexDirection="column">
       <Text bold>forest</Text>
       <Text dimColor>
-        ↑/↓ navigate  enter cd  d delete  c cleanup  r refresh  q quit
+        ↑/↓ navigate  enter cd  t tmux  d delete  c cleanup  r refresh  q quit
       </Text>
       <Text> </Text>
       {worktrees.map((wt, i) => (
