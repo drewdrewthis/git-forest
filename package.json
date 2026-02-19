@@ -23,7 +23,9 @@
   "scripts": {
     "dev": "tsx src/cli.tsx",
     "build": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "eslint src",
+    "check": "pnpm lint && pnpm test && pnpm build"
   },
   "dependencies": {
     "execa": "^9.6.0",
@@ -33,8 +35,14 @@
     "react": "^19.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^25.2.3",
     "@types/react": "^19.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
+    "eslint": "^10.0.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^17.3.0",
     "tsx": "^4.0.0",
     "typescript": "^5.7.0",
     "vitest": "^4.0.18"
