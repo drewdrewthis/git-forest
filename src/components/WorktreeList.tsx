@@ -36,6 +36,7 @@ export function WorktreeList({
   const cols = process.stdout.columns || 80;
   const branchWidth = Math.min(30, Math.floor(cols * 0.25));
   const pathWidth = Math.min(50, Math.floor(cols * 0.45));
+  const tmuxWidth = Math.min(30, Math.floor(cols * 0.2));
 
   const selected = worktrees[cursor];
 
@@ -153,7 +154,7 @@ export function WorktreeList({
             isSelected={i === cursor}
             pathWidth={pathWidth}
             branchWidth={branchWidth}
-            rootPath={worktrees[0]?.path || ""}
+            tmuxWidth={tmuxWidth}
           />
         ))}
       </Box>

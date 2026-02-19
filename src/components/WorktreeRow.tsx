@@ -1,6 +1,6 @@
 import { Box, Text } from "ink";
 import { StatusBadge } from "./StatusBadge.js";
-import { shortPath } from "../lib/paths.js";
+import { truncateLeft } from "../lib/paths.js";
 import type { Worktree } from "../lib/types.js";
 
 interface Props {
@@ -8,7 +8,7 @@ interface Props {
   isSelected: boolean;
   pathWidth: number;
   branchWidth: number;
-  rootPath: string;
+  tmuxWidth: number;
 }
 
 export function WorktreeRow({
@@ -16,9 +16,9 @@ export function WorktreeRow({
   isSelected,
   pathWidth,
   branchWidth,
-  rootPath,
+  tmuxWidth,
 }: Props) {
-  const displayPath = shortPath(worktree.path, rootPath);
+  const displayPath = truncateLeft(worktree.path, pathWidth);
 
   return (
     <Box>
@@ -52,9 +52,11 @@ export function WorktreeRow({
       {worktree.tmuxSession && (
         <>
           <Text>  </Text>
-          <Text color={worktree.tmuxAttached ? "green" : "blue"}>
-            {worktree.tmuxAttached ? "▶" : "◼"} tmux:{worktree.tmuxSession}
-          </Text>
+          <Box width={tmuxWidth}>
+            <Text color={worktree.tmuxAttached ? "green" : "blue"} wrap="truncate">
+              {worktree.tmuxAttached ? "▶" : "◼"} tmux:{worktree.tmuxSession}
+            </Text>
+          </Box>
         </>
       )}
     </Box>

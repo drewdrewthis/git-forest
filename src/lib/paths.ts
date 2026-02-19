@@ -14,10 +14,8 @@ export function tildify(absolutePath: string): string {
   return absolutePath.replace(HOME_DIR, "~");
 }
 
-export function shortPath(absolutePath: string, rootPath: string): string {
-  const rootParent = rootPath.replace(/\/[^/]+\/?$/, "");
-  if (absolutePath.startsWith(rootParent + "/")) {
-    return absolutePath.slice(rootParent.length + 1);
-  }
-  return tildify(absolutePath);
+export function truncateLeft(path: string, maxWidth: number): string {
+  const tildified = tildify(path);
+  if (tildified.length <= maxWidth) return tildified;
+  return "…" + tildified.slice(-(maxWidth - 1));
 }
