@@ -1,6 +1,6 @@
 {
   "name": "git-orchard",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Interactive TUI for managing git worktrees, PR status, and tmux sessions",
   "type": "module",
   "bin": {
