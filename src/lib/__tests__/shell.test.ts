@@ -23,6 +23,12 @@ describe("getShellFunction", () => {
   it("uses command prefix to avoid recursion", () => {
     expect(fn).toContain("command git-orchard");
   });
+
+  it("re-launches orchard after tmux detach", () => {
+    const lines = fn.split("\n");
+    const evalIndex = lines.findIndex((l: string) => l.includes('eval "$tmuxcmd"'));
+    expect(lines[evalIndex + 1]?.trim()).toBe("orchard");
+  });
 });
 
 describe("getInitInstructions", () => {

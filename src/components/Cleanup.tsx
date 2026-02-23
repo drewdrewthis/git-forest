@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Box, Text, useInput } from "ink";
 import Spinner from "ink-spinner";
 import type { Worktree } from "../lib/types.js";
@@ -12,10 +12,19 @@ interface Props {
 }
 
 export function Cleanup({ worktrees, onDone }: Props) {
-  const merged = worktrees.filter((w) => w.pr?.state === "merged");
-  const [selected, setSelected] = useState<Set<string>>(
-    new Set(merged.map((w) => w.path))
+  const stale = worktrees.filter(
+    (w) => w.pr?.state === "merged" || w.pr?.state === "closed"
   );
+  const [selected, setSelected] = useState<Set<string>>(
+    new Set(stale.map((w) => w.path))
+  );
+  const prevStaleCount = useRef(stale.length);
+  useEffect(() => {
+    if (stale.length !== prevStaleCount.current) {
+      prevStaleCount.current = stale.length;
+      setSelected(new Set(stale.map((w) => w.path)));
+    }
+  }, [stale.length]);
   const [cursor, setCursor] = useState(0);
   const [deleting, setDeleting] = useState(false);
   const [deleted, setDeleted] = useState<string[]>([]);
@@ -27,9 +36,9 @@ export function Cleanup({ worktrees, onDone }: Props) {
     if (key.upArrow) {
       setCursor((c) => Math.max(0, c - 1));
     } else if (key.downArrow) {
-      setCursor((c) => Math.min(merged.length - 1, c + 1));
+      setCursor((c) => Math.min(stale.length - 1, c + 1));
     } else if (input === " ") {
-      const path = merged[cursor]?.path;
+      const path = stale[cursor]?.path;
       if (path) {
         setSelected((prev) => {
           const next = new Set(prev);
@@ -47,7 +56,7 @@ export function Cleanup({ worktrees, onDone }: Props) {
       (async () => {
         for (const path of selected) {
           try {
-            const wt = merged.find((w) => w.path === path);
+            const wt = stale.find((w) => w.path === path);
             if (wt?.tmuxSession) {
               try { await killTmuxSession(wt.tmuxSession); } catch { /* ok */ }
             }
@@ -66,10 +75,21 @@ export function Cleanup({ worktrees, onDone }: Props) {
     }
   });
 
-  if (merged.length === 0) {
+  const stillLoading = worktrees.some((w) => w.prLoading);
+
+  if (stale.length === 0) {
+    if (stillLoading) {
+      return (
+        <Box flexDirection="column">
+          <Text>
+            <Spinner type="dots" /> Loading PR data...
+          </Text>
+        </Box>
+      );
+    }
     return (
       <Box flexDirection="column">
-        <Text color="green">No worktrees with merged PRs to clean up.</Text>
+        <Text color="green">No worktrees with merged or closed PRs to clean up.</Text>
         <Text dimColor>Press q to go back</Text>
       </Box>
     );
@@ -110,12 +130,12 @@ export function Cleanup({ worktrees, onDone }: Props) {
 
   return (
     <Box flexDirection="column">
-      <Text bold>Cleanup - Worktrees with merged PRs</Text>
+      <Text bold>Cleanup - Worktrees with merged or closed PRs</Text>
       <Text dimColor>
         space toggle  enter confirm  q cancel
       </Text>
       <Text> </Text>
-      {merged.map((w, i) => {
+      {stale.map((w, i) => {
         const isCursor = cursor === i;
         const isChecked = selected.has(w.path);
         const displayPath = tildify(w.path);

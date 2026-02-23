@@ -15,6 +15,7 @@ orchard() {
   mv "$tmuxfile" "$tmptmp" 2>/dev/null; tmuxcmd=$(cat "$tmptmp" 2>/dev/null); rm -f "$tmptmp"
   if [ -n "$tmuxcmd" ]; then
     eval "$tmuxcmd"
+    orchard
   elif [ -n "$target" ] && [ -d "$target" ]; then
     cd "$target" || return
   fi
