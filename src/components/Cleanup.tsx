@@ -53,8 +53,8 @@ export function Cleanup({ worktrees, onDone }: Props) {
         return;
       }
       setDeleting(true);
-      (async () => {
-        for (const path of selected) {
+      Promise.all(
+        [...selected].map(async (path) => {
           try {
             const wt = stale.find((w) => w.path === path);
             if (wt?.tmuxSession) {
@@ -67,9 +67,10 @@ export function Cleanup({ worktrees, onDone }: Props) {
               `Failed to remove ${path}: ${err instanceof Error ? err.message : "unknown error"}`
             );
           }
-        }
-        setDeleting(false);
-      })().catch((err) => setError(err instanceof Error ? err.message : "unknown error"));
+        })
+      )
+        .then(() => setDeleting(false))
+        .catch((err) => setError(err instanceof Error ? err.message : "unknown error"));
     } else if (input === "q" || key.escape) {
       onDone();
     }
