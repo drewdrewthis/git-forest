@@ -52,4 +52,28 @@ describe("deriveChecksStatus", () => {
     ];
     expect(deriveChecksStatus(checks)).toBe("fail");
   });
+
+  it("handles StatusContext nodes with SUCCESS state", () => {
+    expect(deriveChecksStatus([{ state: "SUCCESS" }])).toBe("pass");
+  });
+
+  it("handles StatusContext nodes with FAILURE state", () => {
+    expect(deriveChecksStatus([{ state: "FAILURE" }])).toBe("fail");
+  });
+
+  it("handles StatusContext nodes with PENDING state", () => {
+    expect(deriveChecksStatus([{ state: "PENDING" }])).toBe("pending");
+  });
+
+  it("handles StatusContext nodes with ERROR state", () => {
+    expect(deriveChecksStatus([{ state: "ERROR" }])).toBe("fail");
+  });
+
+  it("handles mixed CheckRun and StatusContext nodes", () => {
+    const checks = [
+      { status: "COMPLETED", conclusion: "SUCCESS" },
+      { state: "SUCCESS" },
+    ];
+    expect(deriveChecksStatus(checks)).toBe("pass");
+  });
 });
