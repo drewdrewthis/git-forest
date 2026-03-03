@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   findSessionForWorktree,
-  getTmuxCommand,
   formatStatusLeft,
+  switchToSession,
+  deriveSessionName,
   type TmuxSession,
+  type CommandRunner,
 } from "../tmux.js";
 import type { PrInfo } from "../types.js";
 
@@ -100,68 +102,120 @@ const openPr: PrInfo = {
   checksStatus: "pass",
 };
 
-describe("getTmuxCommand", () => {
-  it("returns attach command for existing session", () => {
-    const cmd = getTmuxCommand({
-      worktreePath: "/tmp/wt",
-      sessionName: "feat-login",
-      existingSession: "feat-login",
-      branch: "feat/login",
-      pr: openPr,
-    });
-    expect(cmd).toBe("tmux attach-session -t 'feat-login'");
+describe("deriveSessionName", () => {
+  it("replaces slashes with dashes for branch names", () => {
+    expect(deriveSessionName("feat/new-login", "/repo/wt")).toBe("feat-new-login");
   });
 
-  it("includes status bar options for new session", () => {
-    const cmd = getTmuxCommand({
-      worktreePath: "/tmp/wt",
-      sessionName: "feat-login",
-      existingSession: null,
-      branch: "feat/login",
-      pr: null,
-    });
-    expect(cmd).toContain("tmux new-session -s 'feat-login' -c '/tmp/wt'");
-    expect(cmd).toContain("set-option status on");
-    expect(cmd).toContain("set-option status-style");
-    expect(cmd).toContain("set-option status-left");
-    expect(cmd).toContain("set-option status-right");
+  it("uses last path segment when branch is null", () => {
+    expect(deriveSessionName(null, "/repo/my-worktree")).toBe("my-worktree");
   });
 
-  it("includes popup keybinding for new session", () => {
-    const cmd = getTmuxCommand({
-      worktreePath: "/tmp/wt",
-      sessionName: "main",
-      existingSession: null,
-      branch: "main",
-      pr: null,
-    });
-    expect(cmd).toContain("bind-key o display-popup -E -w 80% -h 80%");
-    expect(cmd).toContain("git-orchard; uid=$(id -u)");
-    expect(cmd).toContain("git-orchard-tmux-cmd-$uid");
+  it("falls back to orchard for empty path", () => {
+    expect(deriveSessionName(null, "")).toBe("orchard");
+  });
+});
+
+describe("switchToSession", () => {
+  function createMockRunner(): CommandRunner & { calls: Array<[string, string[]]> } {
+    const calls: Array<[string, string[]]> = [];
+    const runner = async (cmd: string, args: string[]) => {
+      calls.push([cmd, args]);
+      // Simulate has-session failing (session does not exist)
+      if (args[0] === "has-session") {
+        throw new Error("session not found");
+      }
+      return { stdout: "" };
+    };
+    return Object.assign(runner, { calls });
+  }
+
+  function createMockRunnerWithExistingSession(): CommandRunner & { calls: Array<[string, string[]]> } {
+    const calls: Array<[string, string[]]> = [];
+    const runner = async (cmd: string, args: string[]) => {
+      calls.push([cmd, args]);
+      return { stdout: "" };
+    };
+    return Object.assign(runner, { calls });
+  }
+
+  it("creates session when it does not exist before switching", async () => {
+    const runner = createMockRunner();
+    await switchToSession(
+      {
+        sessionName: "feat-login",
+        worktreePath: "/repo/feat-login",
+        branch: "feat/login",
+        pr: null,
+      },
+      runner
+    );
+
+    const allCmds = runner.calls.map((c) => c[1]);
+    // has-session check
+    expect(allCmds[0]).toEqual(["has-session", "-t", "feat-login"]);
+    // new-session (detached)
+    expect(allCmds[1]).toEqual(["new-session", "-d", "-s", "feat-login", "-c", "/repo/feat-login"]);
+    // switch-client is last
+    expect(allCmds[allCmds.length - 1]).toEqual(["switch-client", "-t", "feat-login"]);
   });
 
-  it("includes PR info in status left when PR exists", () => {
-    const cmd = getTmuxCommand({
-      worktreePath: "/tmp/wt",
-      sessionName: "feat-login",
-      existingSession: null,
-      branch: "feat/login",
-      pr: openPr,
-    });
-    expect(cmd).toContain("PR#42");
-    expect(cmd).toContain("review");
+  it("skips creation when session already exists", async () => {
+    const runner = createMockRunnerWithExistingSession();
+    await switchToSession(
+      {
+        sessionName: "feat-login",
+        worktreePath: "/repo/feat-login",
+        branch: "feat/login",
+        pr: null,
+      },
+      runner
+    );
+
+    const allCmds = runner.calls.map((c) => c[1]);
+    expect(allCmds[0]).toEqual(["has-session", "-t", "feat-login"]);
+    // no new-session call
+    expect(allCmds.every((a) => a[0] !== "new-session")).toBe(true);
+    // switch-client still happens
+    expect(allCmds[allCmds.length - 1]).toEqual(["switch-client", "-t", "feat-login"]);
   });
 
-  it("includes detach hint in status right", () => {
-    const cmd = getTmuxCommand({
-      worktreePath: "/tmp/wt",
-      sessionName: "main",
-      existingSession: null,
-      branch: "main",
-      pr: null,
-    });
-    expect(cmd).toContain("^B d detach");
-    expect(cmd).toContain("^B o orchard");
+  it("configures status bar on new session via discrete set-option calls", async () => {
+    const runner = createMockRunner();
+    await switchToSession(
+      {
+        sessionName: "feat-login",
+        worktreePath: "/repo/feat-login",
+        branch: "feat/login",
+        pr: null,
+      },
+      runner
+    );
+
+    const allCmds = runner.calls.map((c) => c[1]);
+    expect(allCmds.some((a) => a[0] === "set-option" && a.includes("status") && a.includes("on"))).toBe(true);
+    expect(allCmds.some((a) => a[0] === "set-option" && a.includes("status-left"))).toBe(true);
+    expect(allCmds.some((a) => a[0] === "set-option" && a.includes("status-right"))).toBe(true);
+    expect(allCmds.some((a) => a[0] === "bind-key")).toBe(true);
+  });
+
+  it("^B o keybinding switches directly to orchard session", async () => {
+    const runner = createMockRunner();
+    await switchToSession(
+      {
+        sessionName: "feat-login",
+        worktreePath: "/repo/feat-login",
+        branch: "feat/login",
+        pr: null,
+      },
+      runner
+    );
+
+    const allCmds = runner.calls.map((c) => c[1]);
+    const bindCall = allCmds.find((a) => a[0] === "bind-key");
+    expect(bindCall).toContain("o");
+    expect(bindCall).toContain("switch-client");
+    expect(bindCall).toContain("orchard");
   });
 });
 

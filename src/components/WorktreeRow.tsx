@@ -41,14 +41,13 @@ export function WorktreeRow({
         </Text>
       </Box>
       <Text>  </Text>
-      {worktree.isBare ? (
-        <Text dimColor>(bare)</Text>
-      ) : (
-        <StatusBadge
-          pr={worktree.pr}
-          loading={worktree.prLoading}
-        />
-      )}
+      <Box width={12}>
+        {worktree.isBare ? (
+          <Text dimColor>(bare)</Text>
+        ) : (
+          <StatusBadge pr={worktree.pr} loading={worktree.prLoading} />
+        )}
+      </Box>
       {worktree.tmuxSession && (
         <>
           <Text>  </Text>

@@ -1,13 +1,4 @@
-import { tmpdir, userInfo } from "node:os";
-import { join } from "node:path";
-
 export const HOME_DIR = process.env.HOME || "";
-
-const uid = process.getuid?.() ?? userInfo().username;
-
-export const CD_TARGET_FILE = join(tmpdir(), `git-orchard-cd-target-${uid}`);
-
-export const TMUX_CMD_FILE = join(tmpdir(), `git-orchard-tmux-cmd-${uid}`);
 
 export function tildify(absolutePath: string): string {
   if (!HOME_DIR) return absolutePath;
@@ -17,5 +8,5 @@ export function tildify(absolutePath: string): string {
 export function truncateLeft(path: string, maxWidth: number): string {
   const tildified = tildify(path);
   if (tildified.length <= maxWidth) return tildified;
-  return "…" + tildified.slice(-(maxWidth - 1));
+  return "\u2026" + tildified.slice(-(maxWidth - 1));
 }

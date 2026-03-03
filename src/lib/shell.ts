@@ -1,23 +1,30 @@
 export function getShellFunction(): string {
   return `# git-orchard - git worktree manager
 orchard() {
-  local uid=$(id -u)
-  local tmpbase="\${TMPDIR:-/tmp}"
-  tmpbase="\${tmpbase%/}"
-  local cdfile="$tmpbase/git-orchard-cd-target-$uid"
-  local tmuxfile="$tmpbase/git-orchard-tmux-cmd-$uid"
-  command git-orchard "$@"
-  local target tmuxcmd
-  local cdtmp tmptmp
-  cdtmp="$tmpbase/git-orchard-cd-read-$$"
-  tmptmp="$tmpbase/git-orchard-tmux-read-$$"
-  mv "$cdfile" "$cdtmp" 2>/dev/null; target=$(cat "$cdtmp" 2>/dev/null); rm -f "$cdtmp"
-  mv "$tmuxfile" "$tmptmp" 2>/dev/null; tmuxcmd=$(cat "$tmptmp" 2>/dev/null); rm -f "$tmptmp"
-  if [ -n "$tmuxcmd" ]; then
-    eval "$tmuxcmd"
-    orchard
-  elif [ -n "$target" ] && [ -d "$target" ]; then
-    cd "$target" || return
+  local session="orchard"
+  local cmd='while true; do git-orchard; done'
+
+  if tmux has-session -t "$session" 2>/dev/null; then
+    if [ -n "$TMUX" ]; then
+      tmux switch-client -t "$session"
+    else
+      tmux attach-session -t "$session"
+    fi
+  else
+    local cheatsheet='#[fg=colour8]^B ( prev  ^B ) next  ^B % vert  ^B " horiz  ^B z zoom  ^B x close  ^B d detach'
+    local status_left='#[fg=colour2,bold] orchard #[fg=colour248,nobold]'
+    tmux new-session -d -s "$session" /bin/zsh -c "$cmd"
+    tmux set-option -t "$session" status on
+    tmux set-option -t "$session" status-style 'bg=colour235,fg=colour248'
+    tmux set-option -t "$session" status-left-length 60
+    tmux set-option -t "$session" status-right-length 120
+    tmux set-option -t "$session" status-left "$status_left"
+    tmux set-option -t "$session" status-right "$cheatsheet"
+    if [ -n "$TMUX" ]; then
+      tmux switch-client -t "$session"
+    else
+      tmux attach-session -t "$session"
+    fi
   fi
 }`;
 }
@@ -33,5 +40,5 @@ ${getShellFunction()}
 Then reload your shell:
   source ${rcFile}
 
-This creates an "orchard" command that wraps git-orchard so selecting a worktree will cd into it.`;
+This creates an "orchard" command that launches git-orchard in a persistent tmux session.`;
 }

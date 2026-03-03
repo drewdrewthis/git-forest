@@ -1,18 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Box, Text, useApp, useInput } from "ink";
 import Spinner from "ink-spinner";
 import { WorktreeRow } from "./WorktreeRow.js";
 import { ConfirmDelete } from "./ConfirmDelete.js";
-import { writeFileSync, unlinkSync } from "node:fs";
-import { CD_TARGET_FILE, TMUX_CMD_FILE } from "../lib/paths.js";
-import { getTmuxCommand } from "../lib/tmux.js";
+import { switchToSession, deriveSessionName, capturePaneContent } from "../lib/tmux.js";
 import { openUrl } from "../lib/browser.js";
 import type { Worktree } from "../lib/types.js";
-
-function cleanTempFiles() {
-  try { unlinkSync(CD_TARGET_FILE); } catch { /* ok */ }
-  try { unlinkSync(TMUX_CMD_FILE); } catch { /* ok */ }
-}
 
 interface Props {
   worktrees: Worktree[];
@@ -33,12 +26,43 @@ export function WorktreeList({
   const [confirmDelete, setConfirmDelete] = useState<Worktree | null>(null);
   const { exit } = useApp();
 
-  const cols = process.stdout.columns || 80;
+  const [termSize, setTermSize] = useState({
+    cols: process.stdout.columns || 80,
+    rows: process.stdout.rows || 24,
+  });
+
+  useEffect(() => {
+    const onResize = () => setTermSize({
+      cols: process.stdout.columns || 80,
+      rows: process.stdout.rows || 24,
+    });
+    process.stdout.on("resize", onResize);
+    return () => { process.stdout.off("resize", onResize); };
+  }, []);
+
+  const { cols, rows } = termSize;
   const branchWidth = Math.min(30, Math.floor(cols * 0.25));
   const pathWidth = Math.min(50, Math.floor(cols * 0.45));
   const tmuxWidth = Math.min(30, Math.floor(cols * 0.2));
 
+  // header box (12) + spacer (1) + list border+padding (4) + spacer (1) + preview border (2) + spacer (1) + hint (1)
+  const fixedChrome = 12 + 1 + 4 + 1 + 2 + 1 + 1;
+  const previewLines = Math.max(3, rows - fixedChrome - worktrees.length);
+
   const selected = worktrees[cursor];
+
+  const [paneContent, setPaneContent] = useState<string | null>(null);
+  const lastSession = useRef<string | null>(null);
+  useEffect(() => {
+    const session = selected?.tmuxSession ?? null;
+    if (!session) { setPaneContent(null); lastSession.current = null; return; }
+    // Don't clear existing content — fetch silently and swap when ready
+    lastSession.current = session;
+    capturePaneContent(session, previewLines).then((content) => {
+      // Discard if cursor moved to a different session while fetching
+      if (lastSession.current === session) setPaneContent(content);
+    });
+  }, [selected?.tmuxSession, previewLines]);
 
   useInput((input, key) => {
     if (confirmDelete) return;
@@ -47,33 +71,15 @@ export function WorktreeList({
       setCursor((c) => Math.max(0, c - 1));
     } else if (key.downArrow) {
       setCursor((c) => Math.min(worktrees.length - 1, c + 1));
-    } else if (key.return) {
-      if (selected) {
-        cleanTempFiles();
-        try {
-          writeFileSync(CD_TARGET_FILE, selected.path, { mode: 0o600 });
-        } catch {
-          // tmp may be full or read-only; cd just won't happen
-        }
-        exit();
-      }
-    } else if (input === "t") {
+    } else if (key.return || input === "t") {
       if (selected && !selected.isBare) {
-        const sessionName = selected.branch?.replace(/\//g, "-") || selected.path.split("/").pop() || "orchard";
-        const cmd = getTmuxCommand({
-          worktreePath: selected.path,
+        const sessionName = deriveSessionName(selected.branch, selected.path);
+        switchToSession({
           sessionName,
-          existingSession: selected.tmuxSession,
+          worktreePath: selected.path,
           branch: selected.branch,
           pr: selected.pr,
         });
-        cleanTempFiles();
-        try {
-          writeFileSync(TMUX_CMD_FILE, cmd, { mode: 0o600 });
-        } catch {
-          // tmp may be full or read-only; tmux just won't launch
-        }
-        exit();
       }
     } else if (input === "o") {
       if (selected?.pr?.url) {
@@ -88,12 +94,11 @@ export function WorktreeList({
     } else if (input === "r") {
       onRefresh();
     } else if (input === "q") {
-      cleanTempFiles();
       exit();
     }
   });
 
-  if (loading) {
+  if (loading && worktrees.length === 0) {
     return (
       <Box borderStyle="round" borderColor="green" paddingX={2} paddingY={1} flexDirection="column" alignItems="center">
         <Text>
@@ -167,37 +172,56 @@ export function WorktreeList({
 
       <Text> </Text>
 
+      {selected?.tmuxSession && paneContent !== null && <WorktreePreview paneContent={paneContent} lines={previewLines} />}
+      {selected?.tmuxSession && paneContent === null && (
+        <Box height={previewLines + 2} />
+      )}
+
+      <Text> </Text>
+
       <Box paddingX={1} flexDirection="row" gap={1} justifyContent="center">
-        <KeyHint label="enter" desc="cd" />
-        <Text dimColor>{"\u2502"}</Text>
-        <KeyHint label="t" desc="tmux" />
-        <Text dimColor>{"\u2502"}</Text>
-        <KeyHint label="o" desc="pr" dimmed={!hasPr} />
-        <Text dimColor>{"\u2502"}</Text>
-        <KeyHint label="d" desc="delete" />
-        <Text dimColor>{"\u2502"}</Text>
-        <KeyHint label="c" desc="cleanup" />
-        <Text dimColor>{"\u2502"}</Text>
-        <KeyHint label="r" desc="refresh" />
-        <Text dimColor>{"\u2502"}</Text>
-        <KeyHint label="q" desc="quit" />
+        <KeyHint label="enter" desc="tmux" />
+        <Sep /><KeyHint label="o" desc="pr" dimmed={!hasPr} />
+        <Sep /><KeyHint label="d" desc="delete" />
+        <Sep /><KeyHint label="c" desc="cleanup" />
+        <Sep /><KeyHint label="r" desc="refresh" />
+        <Sep /><KeyHint label="q" desc="quit" />
       </Box>
     </Box>
   );
 }
 
+function Sep() {
+  return <Text dimColor>{"\u2502"}</Text>;
+}
+
 function KeyHint({ label, desc, dimmed }: { label: string; desc: string; dimmed?: boolean }) {
   if (dimmed) {
-    return (
-      <Text dimColor>
-        {label} {desc}
-      </Text>
-    );
+    return <Text dimColor>{label} {desc}</Text>;
   }
   return (
     <Text>
       <Text color="cyan" bold>{label}</Text>
       <Text dimColor> {desc}</Text>
     </Text>
+  );
+}
+
+function WorktreePreview({ paneContent, lines }: { paneContent: string | null; lines: number }) {
+  const contentLines = paneContent === null || paneContent === ""
+    ? []
+    : paneContent.split("\n").slice(-lines);
+
+  const paddedLines = [
+    ...contentLines,
+    ...Array.from({ length: Math.max(0, lines - contentLines.length) }, () => ""),
+  ];
+
+  return (
+    <Box borderStyle="round" borderColor="gray" paddingX={2} paddingY={0} flexDirection="column">
+      {paddedLines.map((line, i) => (
+        <Text key={i} dimColor wrap="truncate">{line || " "}</Text>
+      ))}
+    </Box>
   );
 }

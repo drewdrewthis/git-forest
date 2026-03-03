@@ -8,12 +8,11 @@ const cli = meow(
   `
   Usage
     $ git-orchard              Interactive worktree manager
-    $ git-orchard init         Print shell function for cd integration
+    $ git-orchard init         Print shell function for tmux session integration
     $ git-orchard cleanup      Find worktrees with merged PRs to remove
 
   Navigation
     ↑/↓     Select worktree
-    enter   cd into selected worktree
     t       tmux into worktree (attach or create session)
     d       Delete selected worktree
     c       Cleanup merged worktrees

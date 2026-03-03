@@ -54,40 +54,94 @@ export async function killTmuxSession(sessionName: string): Promise<void> {
   await execa("tmux", ["kill-session", "-t", sessionName]);
 }
 
-export interface TmuxCommandOptions {
-  worktreePath: string;
+export async function capturePaneContent(sessionName: string, lines: number): Promise<string | null> {
+  try {
+    const { stdout } = await execa("tmux", [
+      "capture-pane", "-t", sessionName, "-p", "-J", "-e",
+      "-S", String(-lines),
+    ]);
+    // Strip trailing blank lines
+    return stdout.trimEnd();
+  } catch {
+    return null;
+  }
+}
+
+export function deriveSessionName(
+  branch: string | null,
+  worktreePath: string
+): string {
+  if (branch) return branch.replace(/\//g, "-");
+  return worktreePath.split("/").pop() || "orchard";
+}
+
+export interface SwitchToSessionOptions {
   sessionName: string;
-  existingSession: string | null;
+  worktreePath: string;
   branch: string | null;
   pr: PrInfo | null;
 }
 
-export function getTmuxCommand(opts: TmuxCommandOptions): string {
-  const { worktreePath, sessionName, existingSession, branch, pr } = opts;
+/**
+ * Switch the tmux client to a worktree session, creating it if needed.
+ * Configures status bar and popup keybinding on new sessions.
+ */
+export async function switchToSession(
+  opts: SwitchToSessionOptions,
+  runner: CommandRunner = execaRunner
+): Promise<void> {
+  const { sessionName, worktreePath, branch, pr } = opts;
 
-  if (existingSession) {
-    return `tmux attach-session -t ${shellEscape(existingSession)}`;
+  const exists = await sessionExists(sessionName, runner);
+
+  if (!exists) {
+    await runner("tmux", ["new-session", "-d", "-s", sessionName, "-c", worktreePath]);
   }
 
-  const statusLeft = formatStatusLeft(branch, pr);
-  const statusRight = "'#[fg=colour8]^B d detach  ^B o orchard'";
-
-  const setOptions = [
-    `set-option status on`,
-    `set-option status-style 'bg=colour235,fg=colour248'`,
-    `set-option status-left-length 60`,
-    `set-option status-right-length 40`,
-    `set-option status-left ${statusLeft}`,
-    `set-option status-right ${statusRight}`,
-    `bind-key o display-popup -E -w 80% -h 80% 'git-orchard; uid=\$(id -u); f="\${TMPDIR:-/tmp}"; f="\${f%/}/git-orchard-tmux-cmd-\$uid"; if [ -f "\$f" ]; then cmd=\$(cat "\$f"); rm -f "\$f"; eval "\$cmd"; fi'`,
-  ];
-
-  const escapedName = shellEscape(sessionName);
-  const escapedPath = shellEscape(worktreePath);
-  const setOptionsCmds = setOptions.map((cmd) => `\\; ${cmd}`).join(" ");
-
-  return `tmux new-session -s ${escapedName} -c ${escapedPath} ${setOptionsCmds}`;
+  await applySessionStyle(sessionName, branch, pr, runner);
+  await runner("tmux", ["switch-client", "-t", sessionName]);
 }
+
+export type CommandRunner = (
+  cmd: string,
+  args: string[]
+) => Promise<{ stdout: string }>;
+
+async function sessionExists(
+  name: string,
+  runner: CommandRunner
+): Promise<boolean> {
+  try {
+    await runner("tmux", ["has-session", "-t", name]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const CHEATSHEET = "#[fg=colour8]^B o orchard  ^B ( prev  ^B ) next  ^B % vert  ^B \" horiz  ^B \u2190\u2192 pane  ^B z zoom  ^B x close  ^B d detach";
+
+async function applySessionStyle(
+  sessionName: string,
+  branch: string | null,
+  pr: PrInfo | null,
+  runner: CommandRunner
+): Promise<void> {
+  const statusLeft = formatStatusLeft(branch, pr);
+  const t = ["-t", sessionName];
+
+  await runner("tmux", ["set-option", ...t, "status", "on"]);
+  await runner("tmux", ["set-option", ...t, "status-style", "bg=colour235,fg=colour248"]);
+  await runner("tmux", ["set-option", ...t, "status-left-length", "60"]);
+  await runner("tmux", ["set-option", ...t, "status-right-length", "120"]);
+  await runner("tmux", ["set-option", ...t, "status-left", statusLeft]);
+  await runner("tmux", ["set-option", ...t, "status-right", CHEATSHEET]);
+  await runner("tmux", ["bind-key", "o", "switch-client", "-t", "orchard"]);
+}
+
+const execaRunner: CommandRunner = async (cmd, args) => {
+  return execa(cmd, args);
+};
 
 export function formatStatusLeft(
   branch: string | null,
@@ -102,7 +156,7 @@ export function formatStatusLeft(
     parts.push(`PR#${pr.number} ${icon} ${label}`);
   }
 
-  return shellEscape(parts.join(" "));
+  return parts.join(" ");
 }
 
 const tmuxStatusLabels: Record<PrStatus, { icon: string; label: string }> = {
@@ -116,6 +170,3 @@ const tmuxStatusLabels: Record<PrStatus, { icon: string; label: string }> = {
   closed:            { icon: "\u2717", label: "closed" },
 };
 
-function shellEscape(s: string): string {
-  return `'${s.replace(/'/g, "'\\''")}'`;
-}
