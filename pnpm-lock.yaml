@@ -48,6 +48,9 @@ importers:
       globals:
         specifier: ^17.3.0
         version: 17.3.0
+      ink-testing-library:
+        specifier: ^4.0.0
+        version: 4.0.0(@types/react@19.2.14)
       tsx:
         specifier: ^4.0.0
         version: 4.21.0
@@ -905,6 +908,15 @@ packages:
     peerDependencies:
       ink: '>=4.0.0'
       react: '>=18.0.0'
+
+  ink-testing-library@4.0.0:
+    resolution: {integrity: sha512-yF92kj3pmBvk7oKbSq5vEALO//o7Z9Ck/OaLNlkzXNeYdwfpxMQkSowGTFUCS5MSu9bWfSZMewGpp7bFc66D7Q==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@types/react': '>=18.0.0'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   ink@6.7.0:
     resolution: {integrity: sha512-dhB16KfdTO8yYwF2K0E4wPXpL88tdrjjB6w44AZ0ljSktYoUQQcxccq9KL1vpRhk8JIa0A7B7zvjajHqI42teA==}
@@ -2152,6 +2164,10 @@ snapshots:
       cli-spinners: 2.9.2
       ink: 6.7.0(@types/react@19.2.14)(react@19.2.4)
       react: 19.2.4
+
+  ink-testing-library@4.0.0(@types/react@19.2.14):
+    optionalDependencies:
+      '@types/react': 19.2.14
 
   ink@6.7.0(@types/react@19.2.14)(react@19.2.4):
     dependencies:

@@ -5,6 +5,7 @@ import { WorktreeRow } from "./WorktreeRow.js";
 import { ConfirmDelete } from "./ConfirmDelete.js";
 import { switchToSession, deriveSessionName, capturePaneContent } from "../lib/tmux.js";
 import { openUrl } from "../lib/browser.js";
+import { cursorIndexFromDigit } from "../lib/navigation.js";
 import type { Worktree } from "../lib/types.js";
 
 interface Props {
@@ -45,8 +46,8 @@ export function WorktreeList({
   const pathWidth = Math.min(50, Math.floor(cols * 0.45));
   const tmuxWidth = Math.min(30, Math.floor(cols * 0.2));
 
-  // header box (12) + spacer (1) + list border+padding (4) + spacer (1) + preview border (2) + spacer (1) + hint (1)
-  const fixedChrome = 12 + 1 + 4 + 1 + 2 + 1 + 1;
+  // header box (9) + spacer (1) + list border+padding (4) + spacer (1) + preview border (2) + spacer (1) + hint (1)
+  const fixedChrome = 9 + 1 + 4 + 1 + 2 + 1 + 1;
   const previewLines = Math.max(3, rows - fixedChrome - worktrees.length);
 
   const selected = worktrees[cursor];
@@ -95,6 +96,11 @@ export function WorktreeList({
       onRefresh();
     } else if (input === "q") {
       exit();
+    } else {
+      const jumpIndex = cursorIndexFromDigit(input, worktrees.length);
+      if (jumpIndex !== null) {
+        setCursor(jumpIndex);
+      }
     }
   });
 
@@ -144,15 +150,12 @@ export function WorktreeList({
 
   return (
     <Box flexDirection="column">
-      <Box borderStyle="round" borderColor="green" paddingX={4} paddingY={1} flexDirection="column" alignItems="center">
-        <Text color="green">{"   *        *        *"}</Text>
-        <Text color="green">{"  ***      ***      ***"}</Text>
-        <Text color="green">{" *****    *****    *****"}</Text>
-        <Text color="green">{"*******  *******  *******"}</Text>
-        <Text color="green">{"   |        |        |"}</Text>
-        <Text color="green">{"   |        |        |"}</Text>
-        <Text> </Text>
-        <Text bold color="greenBright">{"g i t   o r c h a r d"}</Text>
+      <Box borderStyle="round" borderColor="green" paddingX={2} paddingY={1} flexDirection="column" alignItems="center">
+        <Text color="green">{"🌲🌳🌴🌲🌳🌴🌲🌳🌴🌲🌳🌴🌲🌳🌴🌲🌳🌴"}</Text>
+        <Text color="green">{"┌─┐┬┌┬┐╔═╗╦═╗╔═╗╦ ╦╔═╗╦═╗╔╦╗"}</Text>
+        <Text color="green">{"│ ┬│ │ ║ ║╠╦╝║  ╠═╣╠═╣╠╦╝ ║║"}</Text>
+        <Text color="green">{"└─┘┴ ┴ ╚═╝╩╚═╚═╝╩ ╩╩ ╩╩╚══╩╝"}</Text>
+        <Text color="green">{"🌲🌳🌴🌲🌳🌴🌲🌳🌴🌲🌳🌴🌲🌳🌴🌲🌳🌴"}</Text>
       </Box>
 
       <Text> </Text>
@@ -163,6 +166,7 @@ export function WorktreeList({
             key={wt.path}
             worktree={wt}
             isSelected={i === cursor}
+            index={i}
             pathWidth={pathWidth}
             branchWidth={branchWidth}
             tmuxWidth={tmuxWidth}
@@ -180,7 +184,8 @@ export function WorktreeList({
       <Text> </Text>
 
       <Box paddingX={1} flexDirection="row" gap={1} justifyContent="center">
-        <KeyHint label="enter" desc="tmux" />
+        <KeyHint label="1-9" desc="jump" />
+        <Sep /><KeyHint label="enter" desc="tmux" />
         <Sep /><KeyHint label="o" desc="pr" dimmed={!hasPr} />
         <Sep /><KeyHint label="d" desc="delete" />
         <Sep /><KeyHint label="c" desc="cleanup" />

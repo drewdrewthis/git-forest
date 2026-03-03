@@ -6,6 +6,7 @@ import type { Worktree } from "../lib/types.js";
 interface Props {
   worktree: Worktree;
   isSelected: boolean;
+  index: number;
   pathWidth: number;
   branchWidth: number;
   tmuxWidth: number;
@@ -14,6 +15,7 @@ interface Props {
 export function WorktreeRow({
   worktree,
   isSelected,
+  index,
   pathWidth,
   branchWidth,
   tmuxWidth,
@@ -22,8 +24,9 @@ export function WorktreeRow({
 
   return (
     <Box>
+      <Text dimColor>{index + 1 <= 9 ? `${index + 1}` : " "} </Text>
       <Text color={isSelected ? "cyan" : undefined} bold={isSelected}>
-        {isSelected ? " >" : "  "}{" "}
+        {isSelected ? ">" : " "}{" "}
       </Text>
       <Box width={pathWidth}>
         <Text color={isSelected ? "cyan" : undefined} bold={isSelected} wrap="truncate">
@@ -48,16 +51,16 @@ export function WorktreeRow({
           <StatusBadge pr={worktree.pr} loading={worktree.prLoading} />
         )}
       </Box>
-      {worktree.tmuxSession && (
-        <>
-          <Text>  </Text>
-          <Box width={tmuxWidth}>
-            <Text color={worktree.tmuxAttached ? "green" : "blue"} wrap="truncate">
-              {worktree.tmuxAttached ? "▶" : "◼"} tmux:{worktree.tmuxSession}
-            </Text>
-          </Box>
-        </>
-      )}
+      <Text>  </Text>
+      <Box width={tmuxWidth}>
+        {worktree.tmuxSession ? (
+          <Text color={worktree.tmuxAttached ? "green" : "blue"} wrap="truncate">
+            {worktree.tmuxAttached ? "▶" : "◼"} tmux:{worktree.tmuxSession}
+          </Text>
+        ) : (
+          <Text> </Text>
+        )}
+      </Box>
     </Box>
   );
 }
