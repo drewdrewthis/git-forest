@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Box, Text, useApp, useInput } from "ink";
 import Spinner from "ink-spinner";
+import { TitledBox } from "@mishieck/ink-titled-box";
 import { WorktreeRow } from "./WorktreeRow.js";
 import { ConfirmDelete } from "./ConfirmDelete.js";
 import { switchToSession, deriveSessionName, capturePaneContent } from "../lib/tmux.js";
@@ -160,7 +161,7 @@ export function WorktreeList({
 
       <Text> </Text>
 
-      <Box borderStyle="round" borderColor="gray" paddingX={2} paddingY={1} flexDirection="column">
+      <TitledBox borderStyle="round" borderColor="gray" titles={["WORKTREES"]} paddingX={2} paddingY={1} flexDirection="column">
         {worktrees.map((worktree, i) => (
           <WorktreeRow
             key={worktree.path}
@@ -172,11 +173,11 @@ export function WorktreeList({
             tmuxWidth={tmuxWidth}
           />
         ))}
-      </Box>
+      </TitledBox>
 
       <Text> </Text>
 
-      {selected?.tmuxSession && paneContent !== null && <WorktreePreview paneContent={paneContent} lines={previewLines} />}
+      {selected?.tmuxSession && paneContent !== null && <WorktreePreview paneContent={paneContent} lines={previewLines} sessionName={selected.tmuxSession} />}
       {selected?.tmuxSession && paneContent === null && (
         <Box height={previewLines + 2} />
       )}
@@ -212,7 +213,7 @@ function KeyHint({ label, desc, dimmed }: { label: string; desc: string; dimmed?
   );
 }
 
-function WorktreePreview({ paneContent, lines }: { paneContent: string | null; lines: number }) {
+function WorktreePreview({ paneContent, lines, sessionName }: { paneContent: string | null; lines: number; sessionName: string }) {
   const contentLines = paneContent === null || paneContent === ""
     ? []
     : paneContent.split("\n").slice(-lines);
@@ -223,10 +224,10 @@ function WorktreePreview({ paneContent, lines }: { paneContent: string | null; l
   ];
 
   return (
-    <Box borderStyle="round" borderColor="gray" paddingX={2} paddingY={0} flexDirection="column">
+    <TitledBox borderStyle="double" borderColor="red" titles={["PREVIEW", sessionName]} paddingX={2} paddingY={0} flexDirection="column">
       {paddedLines.map((line, i) => (
         <Text key={i} dimColor wrap="truncate">{line || " "}</Text>
       ))}
-    </Box>
+    </TitledBox>
   );
 }

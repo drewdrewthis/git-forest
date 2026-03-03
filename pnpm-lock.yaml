@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@mishieck/ink-titled-box':
+        specifier: ^0.4.2
+        version: 0.4.2(ink@6.7.0(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       execa:
         specifier: ^9.6.0
         version: 9.6.1
@@ -360,6 +363,13 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@mishieck/ink-titled-box@0.4.2':
+    resolution: {integrity: sha512-4tRyg2n9dPGY66EEchpjHSs+QL5Wdv8kAjRLg/BnXVimwwIl38sLhgphw8dGCGIK2pFz+owLi4vuQBdOdJivBA==}
+    peerDependencies:
+      ink: ^6.0.0
+      react: ^19.1.0
+      typescript: ^5
 
   '@rollup/rollup-android-arm-eabi@4.57.1':
     resolution: {integrity: sha512-A6ehUVSiSaaliTxai040ZpZ2zTevHYbvu/lDoeAteHI8QnaosIzm4qwtezfRg1jOYaUmnzLX1AOD6Z+UJjtifg==}
@@ -1629,6 +1639,12 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@mishieck/ink-titled-box@0.4.2(ink@6.7.0(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)(typescript@5.9.3)':
+    dependencies:
+      ink: 6.7.0(@types/react@19.2.14)(react@19.2.4)
+      react: 19.2.4
+      typescript: 5.9.3
 
   '@rollup/rollup-android-arm-eabi@4.57.1':
     optional: true
