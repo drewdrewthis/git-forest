@@ -4,7 +4,8 @@
   "description": "Interactive TUI for managing git worktrees, PR status, and tmux sessions",
   "type": "module",
   "bin": {
-    "git-orchard": "dist/cli.js"
+    "git-orchard": "dist/cli.js",
+    "orchard": "dist/cli.js"
   },
   "files": [
     "dist",
