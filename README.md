@@ -1,19 +1,34 @@
 # git-orchard
 
-Interactive TUI for managing git worktrees, PR status, tmux sessions, and more.
+A tmux-native TUI for managing git worktrees. Browse worktrees, preview live session content, and switch between them — all without leaving your terminal.
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-blue) ![React Ink](https://img.shields.io/badge/React%20Ink-TUI-green) ![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
 
+## How it works
+
+Orchard runs as a persistent named tmux session. Each worktree you open becomes its own tmux session. The orchard session stays alive in the background, auto-refreshing every 60 seconds, and you can jump back to it at any time with `^B o`.
+
+```
+orchard session (persistent, auto-refreshing)
+├── worktree list + live preview
+└── ^B o from any worktree session returns here
+
+feat/login session
+├── your shell / editor / claude
+└── status bar: branch  PR#42 ◌ review  │  ^B o orchard  ^B ( prev ...
+```
+
 ## Features
 
-- **List worktrees** with branch names, PR status, review state, and tmux indicators
-- **Navigate** into any worktree with Enter (cd via shell wrapper)
-- **tmux integration** — attach to existing sessions or create new ones per worktree
-- **PR status** from GitHub — open, merged, closed
-- **Review status** — see if PRs are approved, have changes requested, or need review
-- **Open PRs in browser** — jump straight to the PR on GitHub
-- **Delete worktrees** with confirmation, auto-kills associated tmux sessions
-- **Batch cleanup** — find and remove all worktrees with merged PRs
+- **Worktree list** with branch, PR status, and review state
+- **Live pane preview** — see what's running in each session before switching
+- **Switch sessions** with Enter — creates the session if it doesn't exist
+- **Consistent tmux UI** — every session gets the same styled status bar with a cheatsheet
+- **PR status** from GitHub — failing CI, unresolved threads, changes requested, approved
+- **Open PRs in browser** — jump straight to GitHub
+- **Delete worktrees** with confirmation
+- **Batch cleanup** — remove all worktrees with merged/closed PRs
+- **Auto-refresh** — list updates in the background every 60s
 
 ## Install
 
@@ -23,95 +38,71 @@ npm install -g git-orchard
 
 ## Setup
 
-Run `git-orchard init` to get a shell wrapper function that enables `cd` and `tmux` integration:
-
 ```bash
 git-orchard init
 ```
 
-Add the printed function to your `~/.zshrc` or `~/.bashrc`, then reload:
+Add the printed shell function to your `~/.zshrc` or `~/.bashrc`, then reload:
 
 ```bash
 source ~/.zshrc
 ```
 
-This creates an `orchard` command that wraps `git-orchard`. Always use `orchard` (not `git-orchard` directly) so that cd and tmux work.
+This creates an `orchard` command that creates and attaches to the persistent orchard tmux session. Always use `orchard`, not `git-orchard` directly.
 
 ## Usage
 
-From any git repository with worktrees:
-
 ```bash
-orchard
+orchard          # Open the orchard session (creates it if needed)
+orchard cleanup  # Jump straight to cleanup view
+orchard init     # Print shell function
 ```
 
-### Keybindings
+### Keybindings in orchard
 
 | Key | Action |
 |-----|--------|
-| `↑/↓` | Navigate worktrees |
-| `Enter` | cd into selected worktree |
-| `t` | tmux into worktree (attach or create session) |
+| `↑ / ↓` | Navigate worktrees |
+| `enter` | Switch to worktree tmux session (creates if needed) |
 | `o` | Open PR in browser |
 | `d` | Delete selected worktree |
-| `c` | Cleanup worktrees with merged PRs |
+| `c` | Cleanup worktrees with merged/closed PRs |
 | `r` | Refresh list |
 | `q` | Quit |
 
-### Commands
+### Tmux cheatsheet (shown in every session's status bar)
 
-```bash
-orchard              # Interactive worktree list
-orchard cleanup      # Jump to cleanup view
-orchard init         # Print shell wrapper function
-orchard --help       # Show help
-```
-
-### What it looks like
-
-```
-╭────────────────────────────────────────╮
-│       *        *        *              │
-│      ***      ***      ***             │
-│     *****    *****    *****            │
-│    *******  *******  *******           │
-│       |        |        |              │
-│       |        |        |              │
-│                                        │
-│       g i t   o r c h a r d           │
-╰────────────────────────────────────────╯
-
-╭────────────────────────────────────────────────────────────╮
-│  > ~/proj-feat    feat/login   ● open ✓ approved           │
-│    ~/proj-fix     fix/typo     ● open ✎ changes requested  │
-│    ~/proj-search  feat/search  ✓ merged  ◼ tmux:search     │
-│    ~/proj-main    main         no PR     ▶ tmux:main       │
-╰────────────────────────────────────────────────────────────╯
-
-  enter cd │ t tmux │ o pr │ d delete │ c cleanup │ r refresh │ q quit
-```
-
-## Contributing
-
-1. Fork the repo and create a feature branch
-2. Read [CODEBASE_STANDARDS.md](./CODEBASE_STANDARDS.md) — we follow SOLID, KISS, YAGNI, and CUPID principles
-3. Write tests for pure functions (BetterSpecs style)
-4. Run `pnpm test` and make sure everything passes
-5. Open a PR
-
-```bash
-pnpm install
-pnpm dev          # Run in dev mode
-pnpm test         # Run tests
-pnpm build        # Compile TypeScript
-```
+| Binding | Action |
+|---------|--------|
+| `^B o` | Switch to orchard session |
+| `^B (` / `^B )` | Previous / next session |
+| `^B %` | Split pane vertically |
+| `^B "` | Split pane horizontally |
+| `^B ←→` | Navigate panes |
+| `^B z` | Zoom pane |
+| `^B x` | Close pane |
+| `^B d` | Detach session |
 
 ## Requirements
 
 - Node.js 18+
 - Git
-- [GitHub CLI](https://cli.github.com/) (`gh`) — for PR and review status (optional, works without it)
-- tmux — for session detection and management (optional, works without it)
+- tmux
+- [GitHub CLI](https://cli.github.com/) (`gh`) — optional, for PR status
+
+## Contributing
+
+1. Fork the repo and create a feature branch
+2. Follow SOLID, KISS, YAGNI, and CUPID principles
+3. Write tests for pure functions (BetterSpecs style)
+4. Run `npm test` and make sure everything passes
+5. Open a PR
+
+```bash
+npm install
+npm test         # Run tests
+npm run build    # Compile TypeScript
+```
 
 ## License
 
