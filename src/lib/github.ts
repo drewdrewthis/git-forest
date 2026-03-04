@@ -82,6 +82,8 @@ export async function enrichPrDetails(
       .map(
         ([, pr], i) => `pr${i}: pullRequest(number: ${pr.number}) {
         number
+        reviewDecision
+        latestReviews(first: 20) { nodes { state } }
         reviewThreads(first: 100) { nodes { isResolved } }
         commits(last: 1) {
           nodes {
@@ -136,6 +138,10 @@ export async function enrichPrDetails(
 
       pr.unresolvedThreads = unresolved;
       pr.checksStatus = deriveChecksStatus(contexts);
+      pr.reviewDecision = deriveReviewDecision(
+        node.reviewDecision ?? "",
+        node.latestReviews?.nodes ?? []
+      );
       prMap.set(branch, pr);
     }
     log.timeEnd("enrichPrDetails");
@@ -143,6 +149,28 @@ export async function enrichPrDetails(
     log.timeEnd("enrichPrDetails");
     log.warn(`enrichPrDetails failed: ${err instanceof Error ? err.message : "unknown"}`);
   }
+}
+
+interface ReviewNode {
+  state: string;
+}
+
+/**
+ * Derive review decision. GitHub only populates reviewDecision when
+ * branch protection requires reviews. For repos without that setting,
+ * we derive the state from individual review states.
+ */
+export function deriveReviewDecision(
+  reviewDecision: string,
+  latestReviews: ReviewNode[]
+): ReviewDecision {
+  if (reviewDecision) return reviewDecision as ReviewDecision;
+
+  // No branch protection — derive from individual reviews
+  const states = latestReviews.map((r) => r.state);
+  if (states.includes("CHANGES_REQUESTED")) return "CHANGES_REQUESTED";
+  if (states.includes("APPROVED")) return "APPROVED";
+  return "";
 }
 
 interface CheckContext {

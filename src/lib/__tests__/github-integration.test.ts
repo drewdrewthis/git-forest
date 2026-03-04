@@ -142,6 +142,7 @@ describe("enrichPrDetails", () => {
           repository: {
             pr0: {
               number: 42,
+              reviewDecision: "APPROVED",
               reviewThreads: { nodes: [{ isResolved: false }, { isResolved: true }] },
               commits: {
                 nodes: [{
@@ -165,6 +166,35 @@ describe("enrichPrDetails", () => {
     const pr = prMap.get("feat")!;
     expect(pr.unresolvedThreads).toBe(1);
     expect(pr.checksStatus).toBe("pass");
+  });
+
+  it("updates reviewDecision from GraphQL response", async () => {
+    const prMap = new Map<string, PrInfo>([
+      ["feat", {
+        number: 42, state: "open", title: "T", url: "u",
+        reviewDecision: "", unresolvedThreads: 0, checksStatus: "none",
+      }],
+    ]);
+
+    // getRepo is cached from previous test, so only mock the GraphQL call
+    mockedExeca.mockReturnValueOnce(Promise.resolve({
+      stdout: JSON.stringify({
+        data: {
+          repository: {
+            pr0: {
+              number: 42,
+              reviewDecision: "APPROVED",
+              reviewThreads: { nodes: [] },
+              commits: { nodes: [{ commit: { statusCheckRollup: { contexts: { nodes: [] } } } }] },
+            },
+          },
+        },
+      }),
+    }) as never);
+
+    await enrichPrDetails(prMap);
+
+    expect(prMap.get("feat")!.reviewDecision).toBe("APPROVED");
   });
 
   it("silently handles GraphQL failure", async () => {

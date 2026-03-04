@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveChecksStatus } from "../github.js";
+import { deriveChecksStatus, deriveReviewDecision } from "../github.js";
 
 describe("deriveChecksStatus", () => {
   it("returns none for empty checks", () => {
@@ -75,5 +75,37 @@ describe("deriveChecksStatus", () => {
       { state: "SUCCESS" },
     ];
     expect(deriveChecksStatus(checks)).toBe("pass");
+  });
+});
+
+describe("deriveReviewDecision", () => {
+  it("returns reviewDecision when set by branch protection", () => {
+    expect(deriveReviewDecision("APPROVED", [])).toBe("APPROVED");
+    expect(deriveReviewDecision("CHANGES_REQUESTED", [])).toBe("CHANGES_REQUESTED");
+    expect(deriveReviewDecision("REVIEW_REQUIRED", [])).toBe("REVIEW_REQUIRED");
+  });
+
+  it("returns APPROVED when any review is approved and no branch protection", () => {
+    expect(deriveReviewDecision("", [
+      { state: "COMMENTED" },
+      { state: "APPROVED" },
+    ])).toBe("APPROVED");
+  });
+
+  it("returns CHANGES_REQUESTED over APPROVED", () => {
+    expect(deriveReviewDecision("", [
+      { state: "APPROVED" },
+      { state: "CHANGES_REQUESTED" },
+    ])).toBe("CHANGES_REQUESTED");
+  });
+
+  it("returns empty string when no reviews exist", () => {
+    expect(deriveReviewDecision("", [])).toBe("");
+  });
+
+  it("returns empty string when only COMMENTED reviews exist", () => {
+    expect(deriveReviewDecision("", [
+      { state: "COMMENTED" },
+    ])).toBe("");
   });
 });
