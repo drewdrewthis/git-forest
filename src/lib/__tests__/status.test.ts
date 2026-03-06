@@ -25,10 +25,10 @@ describe("resolvePrStatus", () => {
     expect(resolvePrStatus({ ...basePr, checksStatus: "fail" })).toBe("failing");
   });
 
-  it("returns failing over unresolved threads", () => {
+  it("returns unresolved over failing checks", () => {
     expect(
       resolvePrStatus({ ...basePr, checksStatus: "fail", unresolvedThreads: 3 })
-    ).toBe("failing");
+    ).toBe("unresolved");
   });
 
   it("returns unresolved when threads exist", () => {

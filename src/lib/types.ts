@@ -27,9 +27,9 @@ export interface PrInfo {
  * Single unified status for display, ordered by priority (highest first).
  */
 export type PrStatus =
-  | "failing"
   | "unresolved"
   | "changes_requested"
+  | "failing"
   | "review_needed"
   | "pending_ci"
   | "approved"
@@ -56,10 +56,10 @@ export function resolvePrStatus(pr: PrInfo): PrStatus {
   if (pr.state === "merged") return "merged";
   if (pr.state === "closed") return "closed";
 
-  // Open PR — priority ordering
-  if (pr.checksStatus === "fail") return "failing";
+  // Open PR — priority ordering (human feedback first, then CI)
   if (pr.unresolvedThreads > 0) return "unresolved";
   if (pr.reviewDecision === "CHANGES_REQUESTED") return "changes_requested";
+  if (pr.checksStatus === "fail") return "failing";
   if (pr.reviewDecision === "REVIEW_REQUIRED" || pr.reviewDecision === "") return "review_needed";
   if (pr.checksStatus === "pending") return "pending_ci";
   return "approved";
