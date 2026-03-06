@@ -24,7 +24,7 @@ export function WorktreeRow({
 
   return (
     <Box>
-      <Text dimColor>{index + 1 <= 9 ? `${index + 1}` : " "} </Text>
+      <Text dimColor>{String(index + 1).padStart(2)} </Text>
       <Text color={isSelected ? "cyan" : undefined} bold={isSelected}>
         {isSelected ? ">" : " "}{" "}
       </Text>
@@ -52,6 +52,16 @@ export function WorktreeRow({
         )}
       </Box>
       <Text>  </Text>
+      {worktree.remote && (
+        <>
+          <Box width={10}>
+            <Text color="magenta" dimColor={!isSelected} wrap="truncate">
+              @{worktree.remote}
+            </Text>
+          </Box>
+          <Text>  </Text>
+        </>
+      )}
       <Box width={tmuxWidth}>
         {worktree.tmuxSession ? (
           <Text color={worktree.tmuxAttached ? "green" : "blue"} wrap="truncate">

@@ -7,6 +7,9 @@ import { ConfirmDelete } from "./ConfirmDelete.js";
 import { switchToSession, deriveSessionName, capturePaneContent } from "../lib/tmux.js";
 import { openUrl } from "../lib/browser.js";
 import { cursorIndexFromDigit } from "../lib/navigation.js";
+import { loadConfig } from "../lib/config.js";
+import { attachRemoteSession } from "../lib/remote.js";
+import { log } from "../lib/log.js";
 import type { Worktree } from "../lib/types.js";
 
 interface Props {
@@ -63,6 +66,9 @@ export function WorktreeList({
     capturePaneContent(session, previewLines).then((content) => {
       // Discard if cursor moved to a different session while fetching
       if (lastSession.current === session) setPaneContent(content);
+    }).catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error(`capturePaneContent failed for ${session}: ${msg}`);
     });
   }, [selected?.tmuxSession, previewLines]);
 
@@ -75,13 +81,27 @@ export function WorktreeList({
       setCursor((c) => Math.min(worktrees.length - 1, c + 1));
     } else if (key.return || input === "t") {
       if (selected && !selected.isBare) {
-        const sessionName = deriveSessionName(selected.branch, selected.path);
-        switchToSession({
-          sessionName,
-          worktreePath: selected.path,
-          branch: selected.branch,
-          pr: selected.pr,
-        });
+        if (selected.remote && selected.tmuxSession) {
+          const config = loadConfig();
+          const remote = config.remotes.find((r) => r.name === selected.remote);
+          if (remote) {
+            attachRemoteSession(remote.host, selected.tmuxSession, remote.shell).catch((err) => {
+              const msg = err instanceof Error ? err.message : String(err);
+              log.error(`attachRemoteSession failed for ${selected.tmuxSession}: ${msg}`);
+            });
+          }
+        } else if (!selected.remote) {
+          const sessionName = deriveSessionName(selected.branch, selected.path);
+          switchToSession({
+            sessionName,
+            worktreePath: selected.path,
+            branch: selected.branch,
+            pr: selected.pr,
+          }).catch((err) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            log.error(`switchToSession failed for ${sessionName}: ${msg}`);
+          });
+        }
       }
     } else if (input === "o") {
       if (selected?.pr?.url) {
@@ -185,7 +205,7 @@ export function WorktreeList({
       <Text> </Text>
 
       <Box paddingX={1} flexDirection="row" gap={1} justifyContent="center">
-        <KeyHint label="1-9" desc="jump" />
+        <KeyHint label="1-9" desc="jump" dimmed={worktrees.length === 0} />
         <Sep /><KeyHint label="enter" desc="tmux" />
         <Sep /><KeyHint label="o" desc="pr" dimmed={!hasPr} />
         <Sep /><KeyHint label="d" desc="delete" />

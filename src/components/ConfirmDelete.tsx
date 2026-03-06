@@ -4,6 +4,8 @@ import Spinner from "ink-spinner";
 import type { Worktree } from "../lib/types.js";
 import { removeWorktree } from "../lib/git.js";
 import { killTmuxSession } from "../lib/tmux.js";
+import { killRemoteTmuxSession, removeRemoteWorktree, removeRemoteRegistryEntry } from "../lib/remote.js";
+import { loadConfig } from "../lib/config.js";
 import { tildify } from "../lib/paths.js";
 import { log } from "../lib/log.js";
 
@@ -15,6 +17,7 @@ interface Props {
 
 export function ConfirmDelete({ worktree, onDone, onCancel }: Props) {
   const [deleting, setDeleting] = useState(false);
+  const [step, setStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useInput((input, key) => {
@@ -28,14 +31,31 @@ export function ConfirmDelete({ worktree, onDone, onCancel }: Props) {
     if (input === "y" || input === "Y") {
       setDeleting(true);
       (async () => {
-        if (worktree.tmuxSession) {
-          try { await killTmuxSession(worktree.tmuxSession); } catch { /* session may already be dead */ }
-        }
-        try {
-          await removeWorktree(worktree.path);
-        } catch (firstError) {
-          log.warn(`removeWorktree failed, retrying with --force: ${firstError instanceof Error ? firstError.message : "unknown"}`);
-          await removeWorktree(worktree.path, true);
+        if (worktree.remote) {
+          const config = loadConfig();
+          const remote = config.remotes.find((r) => r.name === worktree.remote);
+          if (!remote) throw new Error(`remote "${worktree.remote}" not found in config`);
+
+          if (worktree.tmuxSession) {
+            setStep(`Killing remote tmux session "${worktree.tmuxSession}"...`);
+            try { await killRemoteTmuxSession(remote.host, worktree.tmuxSession); } catch { /* ok */ }
+            await removeRemoteRegistryEntry(remote.host, worktree.tmuxSession);
+          }
+          setStep("Removing remote worktree...");
+          await removeRemoteWorktree(remote.host, remote.repoPath, worktree.path);
+        } else {
+          if (worktree.tmuxSession) {
+            setStep(`Killing tmux session "${worktree.tmuxSession}"...`);
+            try { await killTmuxSession(worktree.tmuxSession); } catch { /* session may already be dead */ }
+          }
+          setStep("Removing worktree...");
+          try {
+            await removeWorktree(worktree.path);
+          } catch (firstError) {
+            log.warn(`removeWorktree failed, retrying with --force: ${firstError instanceof Error ? firstError.message : "unknown"}`);
+            setStep("Removing worktree (force)...");
+            await removeWorktree(worktree.path, true);
+          }
         }
         onDone();
       })().catch((err) => {
@@ -61,17 +81,21 @@ export function ConfirmDelete({ worktree, onDone, onCancel }: Props) {
 
   if (deleting) {
     return (
-      <Text>
-        <Spinner type="dots" /> Removing {displayPath}...
-      </Text>
+      <Box flexDirection="column">
+        <Text>
+          <Spinner type="dots" /> {displayPath}
+        </Text>
+        {step && <Text dimColor>  {step}</Text>}
+      </Box>
     );
   }
 
   return (
     <Box flexDirection="column">
       <Text>
-        Delete worktree <Text color="yellow">{worktree.branch}</Text> at{" "}
-        <Text color="cyan">{displayPath}</Text>?
+        Delete{worktree.remote ? " remote" : ""} worktree <Text color="yellow">{worktree.branch}</Text> at{" "}
+        <Text color="cyan">{displayPath}</Text>
+        {worktree.remote && <Text color="magenta"> @{worktree.remote}</Text>}?
       </Text>
       {worktree.pr?.state === "merged" && (
         <Text color="magenta">PR #{worktree.pr.number} is merged.</Text>

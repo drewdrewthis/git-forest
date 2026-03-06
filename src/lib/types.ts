@@ -7,6 +7,7 @@ export interface Worktree {
   prLoading: boolean;
   tmuxSession: string | null;
   tmuxAttached: boolean;
+  remote?: string;
 }
 
 export type ReviewDecision = "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | "";

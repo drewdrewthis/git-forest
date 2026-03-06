@@ -4,6 +4,8 @@ import Spinner from "ink-spinner";
 import type { Worktree } from "../lib/types.js";
 import { removeWorktree } from "../lib/git.js";
 import { killTmuxSession } from "../lib/tmux.js";
+import { killRemoteTmuxSession, removeRemoteWorktree, removeRemoteRegistryEntry } from "../lib/remote.js";
+import { loadConfig } from "../lib/config.js";
 import { tildify } from "../lib/paths.js";
 import { log } from "../lib/log.js";
 
@@ -37,6 +39,7 @@ export function Cleanup({ worktrees, onDone }: Props) {
   const [done, setDone] = useState(false);
   const [deleted, setDeleted] = useState<string[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [steps, setSteps] = useState<Map<string, string>>(new Map());
 
   useInput((input, key) => {
     if (deleting) return;
@@ -67,14 +70,33 @@ export function Cleanup({ worktrees, onDone }: Props) {
       }
       setDeleting(true);
       log.info(`cleanup: deleting ${selected.size} worktree(s)`);
+      const config = loadConfig();
       Promise.all(
         [...selected].map(async (path) => {
           try {
             const worktree = stale.find((w) => w.path === path);
-            if (worktree?.tmuxSession) {
-              try { await killTmuxSession(worktree.tmuxSession); } catch { /* ok */ }
+
+            if (worktree?.remote) {
+              const remote = config.remotes.find((r) => r.name === worktree.remote);
+              if (!remote) throw new Error(`remote "${worktree.remote}" not found in config`);
+
+              if (worktree.tmuxSession) {
+                setSteps((prev) => new Map(prev).set(path, `Killing remote tmux session "${worktree.tmuxSession}"...`));
+                try { await killRemoteTmuxSession(remote.host, worktree.tmuxSession); } catch { /* ok */ }
+                await removeRemoteRegistryEntry(remote.host, worktree.tmuxSession);
+              }
+              setSteps((prev) => new Map(prev).set(path, "Removing remote worktree..."));
+              await removeRemoteWorktree(remote.host, remote.repoPath, path);
+            } else {
+              if (worktree?.tmuxSession) {
+                setSteps((prev) => new Map(prev).set(path, `Killing tmux session "${worktree.tmuxSession}"...`));
+                try { await killTmuxSession(worktree.tmuxSession); } catch { /* ok */ }
+              }
+              setSteps((prev) => new Map(prev).set(path, "Removing worktree..."));
+              await removeWorktree(path, true);
             }
-            await removeWorktree(path, true);
+
+            setSteps((prev) => new Map(prev).set(path, "Done"));
             setDeleted((prev) => [...prev, path]);
           } catch (err) {
             const message = err instanceof Error ? err.message : "unknown error";
@@ -118,15 +140,27 @@ export function Cleanup({ worktrees, onDone }: Props) {
   if (deleting) {
     return (
       <Box flexDirection="column">
-        <Text>
-          <Spinner type="dots" /> Removing worktrees... ({deleted.length}/
-          {selected.size})
+        <Text bold>
+          Removing worktrees ({deleted.length}/{selected.size})
         </Text>
-        {deleted.map((p) => (
-          <Text key={p} color="green">
-            ✓ {tildify(p)}
-          </Text>
-        ))}
+        {[...selected].map((p) => {
+          const isDone = deleted.includes(p);
+          const step = steps.get(p);
+          const hasError = errors.some((e) => e.startsWith(tildify(p)));
+          return (
+            <Box key={p}>
+              <Text color={isDone ? "green" : hasError ? "red" : "yellow"}>
+                {isDone ? "✓" : hasError ? "✗" : "⧖"}{" "}
+                {tildify(p)}
+              </Text>
+              {!isDone && !hasError && step && (
+                <Text dimColor>
+                  {" "}<Spinner type="dots" /> {step}
+                </Text>
+              )}
+            </Box>
+          );
+        })}
       </Box>
     );
   }
@@ -182,6 +216,12 @@ export function Cleanup({ worktrees, onDone }: Props) {
               {" "}
               PR #{w.pr?.number}
             </Text>
+            {w.remote && (
+              <Text color="magenta">
+                {" "}
+                @{w.remote}
+              </Text>
+            )}
             {w.tmuxSession && (
               <Text color="blue" dimColor>
                 {" "}

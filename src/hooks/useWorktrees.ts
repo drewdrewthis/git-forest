@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { listWorktrees } from "../lib/git.js";
 import { getAllPrs, enrichPrDetails, isGhAvailable } from "../lib/github.js";
 import { listTmuxSessions, findSessionForWorktree } from "../lib/tmux.js";
+import { loadConfig } from "../lib/config.js";
+import { fetchRemoteWorktrees } from "../lib/remote.js";
 import { log } from "../lib/log.js";
 import type { Worktree } from "../lib/types.js";
 import type { TmuxSession } from "../lib/tmux.js";
@@ -87,10 +89,25 @@ export function useWorktrees() {
       setWorktrees(withTmux);
 
       const prMap = await fetchPrBasics();
-      setWorktrees(applyPrs(withTmux, prMap));
+      const withPrs = applyPrs(withTmux, prMap);
+      setWorktrees(withPrs);
 
-      await enrichPrs(prMap);
-      setWorktrees(applyPrs(withTmux, prMap));
+      // Fetch remote worktrees in parallel with PR enrichment
+      const config = loadConfig();
+      const [, ...remoteResults] = await Promise.all([
+        enrichPrs(prMap),
+        ...config.remotes.map((remote) => fetchRemoteWorktrees(remote)),
+      ]);
+      const remoteTrees = remoteResults.flat();
+
+      // Apply enriched PRs to local and remote, then combine
+      const localWithPrs = applyPrs(withTmux, prMap);
+      const remotesWithPrs = remoteTrees.map((tree) => {
+        if (!tree.branch || tree.isBare) return tree;
+        return { ...tree, pr: prMap.get(tree.branch) ?? null };
+      });
+
+      setWorktrees([...localWithPrs, ...remotesWithPrs]);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to list worktrees";
       log.error(`refresh failed: ${message}`);
