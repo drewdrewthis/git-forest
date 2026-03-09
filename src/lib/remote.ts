@@ -89,13 +89,19 @@ export async function attachRemoteSession(host: string, sessionName: string, she
     : ["ssh", "-t", host, "tmux", "attach-session", "-t", sessionName];
   log.info(`attachRemoteSession: ${remoteCmdArgs.join(" ")}`);
   try {
-    // Check if we already have a local session for this remote
+    let sessionExists = false;
     try {
       await execa("tmux", ["has-session", "-t", localSession]);
+      sessionExists = true;
+      log.info(`attachRemoteSession: local session ${localSession} already exists`);
     } catch {
+      log.info(`attachRemoteSession: creating local session ${localSession}`);
       await execa("tmux", ["new-session", "-d", "-s", localSession, ...remoteCmdArgs]);
+      log.info(`attachRemoteSession: created local session ${localSession}`);
     }
+    log.info(`attachRemoteSession: switching client to ${localSession} (existed=${sessionExists})`);
     await execa("tmux", ["switch-client", "-t", localSession]);
+    log.info(`attachRemoteSession: switch-client done`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log.error(`attachRemoteSession failed: ${msg}`);
