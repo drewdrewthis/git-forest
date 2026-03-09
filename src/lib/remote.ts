@@ -84,16 +84,16 @@ export async function createRemoteSession(host: string, sessionName: string, wor
 
 export async function attachRemoteSession(host: string, sessionName: string, shell: "mosh" | "ssh" = "ssh"): Promise<void> {
   const localSession = `remote_${sessionName}`;
-  const remoteCmd = shell === "mosh"
-    ? `mosh ${host} -- tmux attach-session -t ${sessionName}`
-    : `ssh -t ${host} tmux attach-session -t ${sessionName}`;
-  log.info(`attachRemoteSession: ${remoteCmd}`);
+  const remoteCmdArgs = shell === "mosh"
+    ? ["mosh", host, "--", "tmux", "attach-session", "-t", sessionName]
+    : ["ssh", "-t", host, "tmux", "attach-session", "-t", sessionName];
+  log.info(`attachRemoteSession: ${remoteCmdArgs.join(" ")}`);
   try {
     // Check if we already have a local session for this remote
     try {
       await execa("tmux", ["has-session", "-t", localSession]);
     } catch {
-      await execa("tmux", ["new-session", "-d", "-s", localSession, remoteCmd]);
+      await execa("tmux", ["new-session", "-d", "-s", localSession, ...remoteCmdArgs]);
     }
     await execa("tmux", ["switch-client", "-t", localSession]);
   } catch (err) {

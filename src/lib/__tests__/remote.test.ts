@@ -143,7 +143,7 @@ describe("attachRemoteSession", () => {
     expect(mockExeca).toHaveBeenCalledWith("tmux", ["has-session", "-t", "remote_issue1966"]);
     expect(mockExeca).toHaveBeenCalledWith("tmux", [
       "new-session", "-d", "-s", "remote_issue1966",
-      "ssh -t ubuntu@10.0.3.56 tmux attach-session -t issue1966",
+      "ssh", "-t", "ubuntu@10.0.3.56", "tmux", "attach-session", "-t", "issue1966",
     ]);
     expect(mockExeca).toHaveBeenCalledWith("tmux", ["switch-client", "-t", "remote_issue1966"]);
   });
@@ -168,7 +168,7 @@ describe("attachRemoteSession", () => {
     await attachRemoteSession("ubuntu@10.0.3.56", "issue1966", "mosh");
     expect(mockExeca).toHaveBeenCalledWith("tmux", [
       "new-session", "-d", "-s", "remote_issue1966",
-      "mosh ubuntu@10.0.3.56 -- tmux attach-session -t issue1966",
+      "mosh", "ubuntu@10.0.3.56", "--", "tmux", "attach-session", "-t", "issue1966",
     ]);
   });
 
