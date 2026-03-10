@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* remote worktree browsing — view and jump into remote tmux sessions over SSH or mosh
+* worktree transfer — push/pull worktrees between local and remote machines (`p` key)
+* merge conflict detection — shown as top-priority status badge
+* issue tracking — links worktrees to GitHub issues and displays issue state
+* `--json` flag for machine-readable worktree output
+
+### Bug Fixes
+
+* fix remote session attach — detect dead connections, surface errors in UI instead of silently failing
+* fix mosh locale error (`LC_CTYPE=UTF-8`) by setting `LC_ALL=en_US.UTF-8` via env
+* handle duplicate remote tmux sessions gracefully instead of erroring
+* force PTY allocation with `ssh -tt` for remote tmux attach inside detached sessions
+* pass remote command as spread args to `tmux new-session` (was incorrectly joined as single string)
+
 ## [0.1.5](https://github.com/drewdrewthis/git-orchard/compare/git-orchard-v0.1.4...git-orchard-v0.1.5) (2026-03-06)
 
 

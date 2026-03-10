@@ -48,7 +48,7 @@ export function WorktreeRow({
         {worktree.isBare ? (
           <Text dimColor>(bare)</Text>
         ) : (
-          <StatusBadge pr={worktree.pr} loading={worktree.prLoading} hasConflicts={worktree.hasConflicts} />
+          <StatusBadge pr={worktree.pr} loading={worktree.prLoading} hasConflicts={worktree.hasConflicts} issueState={worktree.issueState} />
         )}
       </Box>
       <Text>  </Text>
@@ -56,7 +56,7 @@ export function WorktreeRow({
         <>
           <Box width={10}>
             <Text color="magenta" dimColor={!isSelected} wrap="truncate">
-              @{worktree.remote}
+              @{worktree.remote.includes("@") ? worktree.remote.split("@").pop() : worktree.remote}
             </Text>
           </Box>
           <Text>  </Text>

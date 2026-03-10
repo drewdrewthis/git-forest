@@ -26,6 +26,7 @@ const basePr: PrInfo = {
   reviewDecision: "APPROVED",
   unresolvedThreads: 0,
   checksStatus: "pass",
+  hasConflicts: false,
 };
 
 describe("mergeTmuxSessions", () => {

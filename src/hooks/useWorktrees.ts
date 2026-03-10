@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { listWorktrees } from "../lib/git.js";
-import { getAllPrs, enrichPrDetails, isGhAvailable } from "../lib/github.js";
+import { getAllPrs, enrichPrDetails, isGhAvailable, extractIssueNumber, getIssueStates, type IssueState } from "../lib/github.js";
 import { listTmuxSessions, findSessionForWorktree } from "../lib/tmux.js";
 import { loadConfig } from "../lib/config.js";
 import { fetchRemoteWorktrees } from "../lib/remote.js";
@@ -45,9 +45,9 @@ export function mergeTmuxSessions(
   });
 }
 
-export async function fetchPrBasics(): Promise<Map<string, PrInfo>> {
+export async function fetchPrBasics(branches: string[] = []): Promise<Map<string, PrInfo>> {
   log.time("phase:pr-basics");
-  const prMap = await getAllPrs();
+  const prMap = await getAllPrs(branches);
   log.timeEnd("phase:pr-basics");
   log.info(`PRs: ${prMap.size} found`);
   return prMap;
@@ -64,6 +64,35 @@ export async function enrichPrs(prMap: Map<string, PrInfo>): Promise<void> {
   log.time("phase:pr-enrich");
   await enrichPrDetails(prMap);
   log.timeEnd("phase:pr-enrich");
+}
+
+export async function fetchIssueStates(trees: Worktree[]): Promise<Map<number, IssueState>> {
+  const issueEntries: Array<{ index: number; issueNumber: number }> = [];
+  for (let i = 0; i < trees.length; i++) {
+    const tree = trees[i]!;
+    if (tree.pr || tree.isBare || !tree.branch) continue;
+    const num = extractIssueNumber(tree.branch);
+    if (num !== null) issueEntries.push({ index: i, issueNumber: num });
+  }
+  if (issueEntries.length === 0) return new Map();
+
+  const uniqueNumbers = [...new Set(issueEntries.map((e) => e.issueNumber))];
+  return getIssueStates(uniqueNumbers);
+}
+
+export function applyIssueStates(
+  trees: Worktree[],
+  issueStates: Map<number, IssueState>
+): Worktree[] {
+  if (issueStates.size === 0) return trees;
+  return trees.map((tree) => {
+    if (tree.pr || tree.isBare || !tree.branch) return tree;
+    const num = extractIssueNumber(tree.branch);
+    if (num === null) return tree;
+    const state = issueStates.get(num);
+    if (!state) return tree;
+    return { ...tree, issueNumber: num, issueState: state };
+  });
 }
 
 export function useWorktrees() {
@@ -88,17 +117,22 @@ export function useWorktrees() {
 
       setWorktrees(withTmux);
 
-      const prMap = await fetchPrBasics();
+      const worktreeBranches = withTmux
+        .filter((t) => !t.isBare && t.branch)
+        .map((t) => t.branch!);
+      const prMap = await fetchPrBasics(worktreeBranches);
       const withPrs = applyPrs(withTmux, prMap);
       setWorktrees(withPrs);
 
       // Fetch remote worktrees in parallel with PR enrichment
       const config = loadConfig();
-      const [, ...remoteResults] = await Promise.all([
+      const remotePromise = config.remote
+        ? fetchRemoteWorktrees(config.remote)
+        : Promise.resolve([]);
+      const [, remoteTrees] = await Promise.all([
         enrichPrs(prMap),
-        ...config.remotes.map((remote) => fetchRemoteWorktrees(remote)),
+        remotePromise,
       ]);
-      const remoteTrees = remoteResults.flat();
 
       // Apply enriched PRs to local and remote, then combine
       const localWithPrs = applyPrs(withTmux, prMap);
@@ -107,7 +141,13 @@ export function useWorktrees() {
         return { ...tree, pr: prMap.get(tree.branch) ?? null };
       });
 
-      setWorktrees([...localWithPrs, ...remotesWithPrs]);
+      const allTrees = [...localWithPrs, ...remotesWithPrs];
+
+      // Enrich worktrees without PRs with issue closed state
+      const issueStates = await fetchIssueStates(allTrees);
+      const withIssues = applyIssueStates(allTrees, issueStates);
+
+      setWorktrees(withIssues);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to list worktrees";
       log.error(`refresh failed: ${message}`);

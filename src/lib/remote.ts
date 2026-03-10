@@ -5,7 +5,7 @@ import type { RemoteConfig } from "./config.js";
 import type { Worktree } from "./types.js";
 import type { TmuxSession } from "./tmux.js";
 
-async function sshExec(host: string, command: string): Promise<string> {
+export async function sshExec(host: string, command: string): Promise<string> {
   const { stdout } = await execa("ssh", [
     "-o", "ConnectTimeout=5",
     "-o", "BatchMode=yes",
@@ -26,13 +26,13 @@ export async function listRemoteWorktrees(remote: RemoteConfig): Promise<Worktre
     );
     const trees = parsePorcelain(stdout).map((tree) => ({
       ...tree,
-      remote: remote.name,
+      remote: remote.host,
     }));
-    log.info(`remote[${remote.name}]: ${trees.length} worktrees`);
+    log.info(`remote[${remote.host}]: ${trees.length} worktrees`);
     return trees;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    log.warn(`remote[${remote.name}]: failed to list worktrees: ${msg}`);
+    log.warn(`remote[${remote.host}]: failed to list worktrees: ${msg}`);
     return [];
   }
 }
@@ -51,7 +51,7 @@ export async function listRemoteTmuxSessions(remote: RemoteConfig): Promise<Tmux
         const [name, path, attached] = line.split("\t");
         return { name: name!, path: path!, attached: attached === "1" };
       });
-    log.info(`remote[${remote.name}]: ${sessions.length} tmux sessions`);
+    log.info(`remote[${remote.host}]: ${sessions.length} tmux sessions`);
     return sessions;
   } catch {
     return [];
@@ -78,15 +78,26 @@ export async function removeRemoteRegistryEntry(host: string, sessionName: strin
 }
 
 export async function createRemoteSession(host: string, sessionName: string, worktreePath: string): Promise<void> {
-  await sshExec(host, `tmux new-session -d -s ${sessionName} -c ${worktreePath}`);
-  log.info(`createRemoteSession: created ${sessionName} at ${worktreePath} on ${host}`);
+  try {
+    await sshExec(host, `tmux new-session -d -s ${sessionName} -c ${worktreePath}`);
+    log.info(`createRemoteSession: created ${sessionName} at ${worktreePath} on ${host}`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("duplicate session")) {
+      log.info(`createRemoteSession: session ${sessionName} already exists on ${host}, reusing`);
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function attachRemoteSession(host: string, sessionName: string, shell: "mosh" | "ssh" = "ssh"): Promise<void> {
   const localSession = `remote_${sessionName}`;
+  // Use -tt to force PTY allocation — ssh may refuse a single -t when
+  // its stdin is not a terminal (which is the case inside tmux new-session -d).
   const remoteCmdArgs = shell === "mosh"
-    ? ["mosh", host, "--", "tmux", "attach-session", "-t", sessionName]
-    : ["ssh", "-t", host, "tmux", "attach-session", "-t", sessionName];
+    ? ["env", "LC_ALL=en_US.UTF-8", "mosh", host, "--", "tmux", "attach-session", "-t", sessionName]
+    : ["ssh", "-tt", host, "tmux", "attach-session", "-t", sessionName];
   log.info(`attachRemoteSession: ${remoteCmdArgs.join(" ")}`);
   try {
     let sessionExists = false;
@@ -97,7 +108,33 @@ export async function attachRemoteSession(host: string, sessionName: string, she
     } catch {
       log.info(`attachRemoteSession: creating local session ${localSession}`);
       await execa("tmux", ["new-session", "-d", "-s", localSession, ...remoteCmdArgs]);
+      // Keep session alive if SSH exits so the client isn't disrupted
+      await execa("tmux", ["set-option", "-t", localSession, "remain-on-exit", "on"]);
       log.info(`attachRemoteSession: created local session ${localSession}`);
+
+      // Brief pause to let the connection start — if it exits immediately
+      // (e.g. connection refused, locale error), we want to detect that before switching
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Verify the session command is still running (not just remain-on-exit keeping pane alive)
+      try {
+        const { stdout } = await execa("tmux", ["list-panes", "-t", localSession, "-F", "#{pane_dead}"]);
+        if (stdout.trim() === "1") {
+          // Pane is dead — connection exited immediately. Capture output for diagnostics.
+          let paneOutput = "";
+          try {
+            const captured = await execa("tmux", ["capture-pane", "-t", localSession, "-p"]);
+            paneOutput = captured.stdout.trim();
+          } catch { /* ignore capture errors */ }
+          await execa("tmux", ["kill-session", "-t", localSession]);
+          const detail = paneOutput ? `\n${paneOutput}` : "";
+          throw new Error(`Connection to ${host} failed${detail}`);
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("Connection to")) throw err;
+        // list-panes failed, session probably doesn't exist
+        throw new Error(`Session ${localSession} died before we could switch to it`);
+      }
     }
     log.info(`attachRemoteSession: switching client to ${localSession} (existed=${sessionExists})`);
     await execa("tmux", ["switch-client", "-t", localSession]);

@@ -9,6 +9,8 @@ export interface Worktree {
   tmuxSession: string | null;
   tmuxAttached: boolean;
   remote?: string;
+  issueNumber?: number;
+  issueState?: "open" | "closed" | "completed";
 }
 
 export type ReviewDecision = "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | "";
@@ -23,6 +25,7 @@ export interface PrInfo {
   reviewDecision: ReviewDecision;
   unresolvedThreads: number;
   checksStatus: ChecksStatus;
+  hasConflicts: boolean;
 }
 
 /**
@@ -60,7 +63,8 @@ export function resolvePrStatus(pr: PrInfo): PrStatus {
   if (pr.state === "merged") return "merged";
   if (pr.state === "closed") return "closed";
 
-  // Open PR — priority ordering (human feedback first, then CI)
+  // Open PR — priority ordering (merge conflicts first, then human feedback, then CI)
+  if (pr.hasConflicts) return "conflict";
   if (pr.unresolvedThreads > 0) return "unresolved";
   if (pr.reviewDecision === "CHANGES_REQUESTED") return "changes_requested";
   if (pr.checksStatus === "fail") return "failing";

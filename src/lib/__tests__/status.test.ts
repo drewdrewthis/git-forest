@@ -10,6 +10,7 @@ const basePr: PrInfo = {
   reviewDecision: "APPROVED",
   unresolvedThreads: 0,
   checksStatus: "pass",
+  hasConflicts: false,
 };
 
 describe("resolvePrStatus", () => {
@@ -19,6 +20,14 @@ describe("resolvePrStatus", () => {
 
   it("returns closed for closed PR", () => {
     expect(resolvePrStatus({ ...basePr, state: "closed" })).toBe("closed");
+  });
+
+  it("returns conflict when PR has merge conflicts", () => {
+    expect(resolvePrStatus({ ...basePr, hasConflicts: true })).toBe("conflict");
+  });
+
+  it("returns conflict over other open PR statuses", () => {
+    expect(resolvePrStatus({ ...basePr, hasConflicts: true, checksStatus: "fail", unresolvedThreads: 3 })).toBe("conflict");
   });
 
   it("returns failing when checks fail", () => {

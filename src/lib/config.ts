@@ -4,19 +4,35 @@ import { execaSync } from "execa";
 import { log } from "./log.js";
 
 export interface RemoteConfig {
-  name: string;
   host: string;
   repoPath: string;
   shell?: "mosh" | "ssh";
 }
 
 export interface OrchardConfig {
-  remotes: RemoteConfig[];
+  remote?: RemoteConfig;
+}
+
+/** Shape of the legacy config with remotes array. */
+interface LegacyRemoteConfig {
+  name?: string;
+  host: string;
+  repoPath: string;
+  shell?: "mosh" | "ssh";
 }
 
 function findGitDir(): string {
   const { stdout } = execaSync("git", ["rev-parse", "--absolute-git-dir"]);
   return stdout.trim();
+}
+
+function isValidRemote(r: unknown): r is LegacyRemoteConfig {
+  return (
+    typeof r === "object" &&
+    r !== null &&
+    typeof (r as LegacyRemoteConfig).host === "string" &&
+    typeof (r as LegacyRemoteConfig).repoPath === "string"
+  );
 }
 
 export function loadConfig(): OrchardConfig {
@@ -25,28 +41,31 @@ export function loadConfig(): OrchardConfig {
     const configPath = join(gitDir, "orchard.json");
 
     if (!existsSync(configPath)) {
-      return { remotes: [] };
+      return {};
     }
 
     const raw = readFileSync(configPath, "utf-8");
-    const parsed = JSON.parse(raw) as Partial<OrchardConfig>;
+    const parsed = JSON.parse(raw);
 
-    if (!Array.isArray(parsed.remotes)) {
-      return { remotes: [] };
+    // New shape: { remote: { host, repoPath } }
+    if (parsed.remote && isValidRemote(parsed.remote)) {
+      const { host, repoPath, shell } = parsed.remote;
+      log.info(`config: loaded remote ${host} from ${configPath}`);
+      return { remote: { host, repoPath, shell } };
     }
 
-    const remotes = parsed.remotes.filter(
-      (r): r is RemoteConfig =>
-        typeof r === "object" &&
-        r !== null &&
-        typeof r.name === "string" &&
-        typeof r.host === "string" &&
-        typeof r.repoPath === "string"
-    );
+    // Legacy shape: { remotes: [{ name?, host, repoPath }] }
+    if (Array.isArray(parsed.remotes)) {
+      const first = parsed.remotes.find(isValidRemote);
+      if (first) {
+        const { host, repoPath, shell } = first;
+        log.info(`config: migrated remote ${host} from ${configPath}`);
+        return { remote: { host, repoPath, shell } };
+      }
+    }
 
-    log.info(`config: loaded ${remotes.length} remote(s) from ${configPath}`);
-    return { remotes };
+    return {};
   } catch {
-    return { remotes: [] };
+    return {};
   }
 }

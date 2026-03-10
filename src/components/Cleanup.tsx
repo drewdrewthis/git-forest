@@ -11,7 +11,10 @@ import { log } from "../lib/log.js";
 
 function filterStale(worktrees: Worktree[]): Worktree[] {
   return worktrees.filter(
-    (w) => w.pr?.state === "merged" || w.pr?.state === "closed"
+    (w) =>
+      w.pr?.state === "merged" ||
+      w.pr?.state === "closed" ||
+      (!w.pr && (w.issueState === "completed" || w.issueState === "closed"))
   );
 }
 
@@ -76,9 +79,8 @@ export function Cleanup({ worktrees, onDone }: Props) {
           try {
             const worktree = stale.find((w) => w.path === path);
 
-            if (worktree?.remote) {
-              const remote = config.remotes.find((r) => r.name === worktree.remote);
-              if (!remote) throw new Error(`remote "${worktree.remote}" not found in config`);
+            if (worktree?.remote && config.remote) {
+              const remote = config.remote;
 
               if (worktree.tmuxSession) {
                 setSteps((prev) => new Map(prev).set(path, `Killing remote tmux session "${worktree.tmuxSession}"...`));
@@ -131,7 +133,7 @@ export function Cleanup({ worktrees, onDone }: Props) {
     }
     return (
       <Box flexDirection="column">
-        <Text color="green">No worktrees with merged or closed PRs to clean up.</Text>
+        <Text color="green">No stale worktrees to clean up.</Text>
         <Text dimColor>Press q to go back</Text>
       </Box>
     );
@@ -193,7 +195,7 @@ export function Cleanup({ worktrees, onDone }: Props) {
 
   return (
     <Box flexDirection="column">
-      <Text bold>Cleanup - Worktrees with merged or closed PRs</Text>
+      <Text bold>Cleanup - Stale worktrees (merged/closed PRs, closed issues)</Text>
       <Text dimColor>
         space toggle  enter confirm  q cancel
       </Text>
@@ -214,7 +216,7 @@ export function Cleanup({ worktrees, onDone }: Props) {
             </Text>
             <Text color="magenta" dimColor>
               {" "}
-              PR #{w.pr?.number}
+              {w.pr ? `PR #${w.pr.number}` : `issue #${w.issueNumber}`}
             </Text>
             {w.remote && (
               <Text color="magenta">

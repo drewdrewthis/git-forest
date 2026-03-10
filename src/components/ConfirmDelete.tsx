@@ -33,8 +33,8 @@ export function ConfirmDelete({ worktree, onDone, onCancel }: Props) {
       (async () => {
         if (worktree.remote) {
           const config = loadConfig();
-          const remote = config.remotes.find((r) => r.name === worktree.remote);
-          if (!remote) throw new Error(`remote "${worktree.remote}" not found in config`);
+          const remote = config.remote;
+          if (!remote) throw new Error("No remote configured");
 
           if (worktree.tmuxSession) {
             setStep(`Killing remote tmux session "${worktree.tmuxSession}"...`);

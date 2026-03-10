@@ -23,12 +23,17 @@ feat/login session
 - **Worktree list** with branch, PR status, and review state
 - **Live pane preview** — see what's running in each session before switching
 - **Switch sessions** with Enter — creates the session if it doesn't exist
+- **Remote worktrees** — browse and jump into remote tmux sessions over SSH or mosh
+- **Worktree transfer** — push/pull worktrees between local and remote machines
+- **Merge conflict detection** — shows conflicts as top-priority status badge
+- **Issue tracking** — links worktrees to GitHub issues and shows issue state
 - **Consistent tmux UI** — every session gets the same styled status bar with a cheatsheet
 - **PR status** from GitHub — failing CI, unresolved threads, changes requested, approved
 - **Open PRs in browser** — jump straight to GitHub
 - **Delete worktrees** with confirmation
 - **Batch cleanup** — remove all worktrees with merged/closed PRs
 - **Auto-refresh** — list updates in the background every 60s
+- **JSON output** — `--json` flag for machine-readable worktree data
 
 ## Install
 
@@ -64,8 +69,10 @@ orchard --json   # Output worktree data as JSON and exit
 | Key | Action |
 |-----|--------|
 | `↑ / ↓` | Navigate worktrees |
+| `1-9` | Jump to worktree by number |
 | `enter` | Switch to worktree tmux session (creates if needed) |
 | `o` | Open PR in browser |
+| `p` | Push/pull worktree to/from remote |
 | `d` | Delete selected worktree |
 | `c` | Cleanup worktrees with merged/closed PRs |
 | `r` | Refresh list |
@@ -83,6 +90,28 @@ orchard --json   # Output worktree data as JSON and exit
 | `^B z` | Zoom pane |
 | `^B x` | Close pane |
 | `^B d` | Detach session |
+
+## Remote Worktrees
+
+Orchard can display and manage worktrees on a remote machine. Configure a remote in `.git/orchard.json` (or `.git/modules/<name>/orchard.json` for submodules):
+
+```json
+{
+  "remote": {
+    "host": "ubuntu@10.0.3.56",
+    "repoPath": "~/project/bare-repo",
+    "shell": "mosh"
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `host` | SSH host (`user@hostname`) |
+| `repoPath` | Path to the bare repo on the remote |
+| `shell` | `"ssh"` (default) or `"mosh"` for the connection |
+
+Press **Enter** on a remote worktree to open a local tmux session that connects to the remote tmux session via SSH/mosh. Press **p** to transfer a worktree between local and remote.
 
 ## Requirements
 

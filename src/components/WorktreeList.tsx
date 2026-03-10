@@ -4,13 +4,16 @@ import Spinner from "ink-spinner";
 import { TitledBox } from "@mishieck/ink-titled-box";
 import { WorktreeRow } from "./WorktreeRow.js";
 import { ConfirmDelete } from "./ConfirmDelete.js";
+import { Transfer } from "./Transfer.js";
 import { switchToSession, deriveSessionName, capturePaneContent } from "../lib/tmux.js";
 import { openUrl } from "../lib/browser.js";
 import { cursorIndexFromDigit } from "../lib/navigation.js";
 import { loadConfig } from "../lib/config.js";
+import type { RemoteConfig } from "../lib/config.js";
 import { attachRemoteSession, createRemoteSession } from "../lib/remote.js";
 import { log } from "../lib/log.js";
 import type { Worktree } from "../lib/types.js";
+import { execaSync } from "execa";
 
 interface Props {
   worktrees: Worktree[];
@@ -29,7 +32,12 @@ export function WorktreeList({
 }: Props) {
   const [cursor, setCursor] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState<Worktree | null>(null);
+  const [transferTarget, setTransferTarget] = useState<Worktree | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const { exit } = useApp();
+
+  const config = loadConfig();
+  const remoteConfig: RemoteConfig | undefined = config.remote;
 
   const [termSize, setTermSize] = useState({
     cols: process.stdout.columns || 80,
@@ -72,8 +80,13 @@ export function WorktreeList({
     });
   }, [selected?.tmuxSession, previewLines]);
 
+  function showWarning(msg: string) {
+    setWarning(msg);
+    setTimeout(() => setWarning(null), 3000);
+  }
+
   useInput((input, key) => {
-    if (confirmDelete) return;
+    if (confirmDelete || transferTarget) return;
 
     if (key.upArrow) {
       setCursor((c) => Math.max(0, c - 1));
@@ -83,7 +96,7 @@ export function WorktreeList({
       if (selected && !selected.isBare) {
         if (selected.remote) {
           const config = loadConfig();
-          const remote = config.remotes.find((r) => r.name === selected.remote);
+          const remote = config.remote;
           if (remote) {
             const sessionName = selected.tmuxSession ?? deriveSessionName(selected.branch, selected.path);
             const attach = selected.tmuxSession
@@ -94,6 +107,7 @@ export function WorktreeList({
               .catch((err) => {
                 const msg = err instanceof Error ? err.message : String(err);
                 log.error(`remote session failed for ${sessionName}: ${msg}`);
+                showWarning(`Remote: ${msg}`);
               });
           }
         } else {
@@ -116,6 +130,18 @@ export function WorktreeList({
     } else if (input === "d") {
       if (selected && !selected.isBare) {
         setConfirmDelete(selected);
+      }
+    } else if (input === "p") {
+      if (!remoteConfig) {
+        showWarning("No remote configured");
+      } else if (!selected || selected.isBare) {
+        showWarning("Cannot transfer bare worktree");
+      } else if (!selected.branch) {
+        showWarning("Cannot transfer detached HEAD");
+      } else if (selected.hasConflicts) {
+        showWarning("Resolve merge conflicts first");
+      } else {
+        setTransferTarget(selected);
       }
     } else if (input === "c") {
       onCleanup();
@@ -173,6 +199,24 @@ export function WorktreeList({
     );
   }
 
+  if (transferTarget && remoteConfig) {
+    const repoRoot = execaSync("git", ["rev-parse", "--show-toplevel"]).stdout.trim();
+    return (
+      <Box borderStyle="round" borderColor="cyan" paddingX={2} paddingY={1}>
+        <Transfer
+          worktree={transferTarget}
+          remote={remoteConfig}
+          repoRoot={repoRoot}
+          onDone={() => {
+            setTransferTarget(null);
+            onRefresh();
+          }}
+          onCancel={() => setTransferTarget(null)}
+        />
+      </Box>
+    );
+  }
+
   const hasPr = !!selected?.pr?.url;
 
   return (
@@ -210,10 +254,21 @@ export function WorktreeList({
 
       <Text> </Text>
 
+      {warning && (
+        <Box justifyContent="center">
+          <Text color="yellow">{warning}</Text>
+        </Box>
+      )}
+
       <Box paddingX={1} flexDirection="row" gap={1} justifyContent="center">
         <KeyHint label="1-9" desc="jump" dimmed={worktrees.length === 0} />
         <Sep /><KeyHint label="enter" desc="tmux" />
         <Sep /><KeyHint label="o" desc="pr" dimmed={!hasPr} />
+        {remoteConfig && (
+          <>
+            <Sep /><KeyHint label="p" desc={selected?.remote ? "pull" : "push"} />
+          </>
+        )}
         <Sep /><KeyHint label="d" desc="delete" />
         <Sep /><KeyHint label="c" desc="cleanup" />
         <Sep /><KeyHint label="r" desc="refresh" />

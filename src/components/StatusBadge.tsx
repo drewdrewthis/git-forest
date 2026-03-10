@@ -6,9 +6,10 @@ interface Props {
   pr: PrInfo | null;
   loading: boolean;
   hasConflicts: boolean;
+  issueState?: "open" | "closed" | "completed";
 }
 
-export function StatusBadge({ pr, loading, hasConflicts }: Props) {
+export function StatusBadge({ pr, loading, hasConflicts, issueState }: Props) {
   if (hasConflicts) {
     const { icon, label } = prStatusDisplay["conflict"];
     return <Text color={statusColor["conflict"]}>{icon} {label}</Text>;
@@ -16,6 +17,10 @@ export function StatusBadge({ pr, loading, hasConflicts }: Props) {
 
   if (loading) {
     return <Text dimColor>···</Text>;
+  }
+
+  if (!pr && (issueState === "completed" || issueState === "closed")) {
+    return <Text color="green">{"\u2713"} closed</Text>;
   }
 
   if (!pr) {

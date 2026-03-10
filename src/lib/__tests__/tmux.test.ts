@@ -100,6 +100,7 @@ const openPr: PrInfo = {
   reviewDecision: "",
   unresolvedThreads: 0,
   checksStatus: "pass",
+  hasConflicts: false,
 };
 
 describe("deriveSessionName", () => {

@@ -9,7 +9,6 @@ vi.mock("execa", () => ({
 const mockExeca = vi.mocked(execa);
 
 const remote: RemoteConfig = {
-  name: "remmy",
   host: "ubuntu@10.0.3.56",
   repoPath: "~/langwatch/langwatch-bare",
 };
@@ -24,7 +23,7 @@ describe("listRemoteWorktrees", () => {
     return mod.listRemoteWorktrees(r);
   }
 
-  it("parses remote worktree output and tags with remote name", async () => {
+  it("parses remote worktree output and tags with remote host", async () => {
     mockExeca.mockResolvedValue({
       stdout: `worktree /home/ubuntu/repo
 HEAD abc123
@@ -38,9 +37,9 @@ branch refs/heads/feat/login
 
     const trees = await listRemoteWorktrees(remote);
     expect(trees).toHaveLength(2);
-    expect(trees[0]!.remote).toBe("remmy");
+    expect(trees[0]!.remote).toBe("ubuntu@10.0.3.56");
     expect(trees[0]!.branch).toBe("main");
-    expect(trees[1]!.remote).toBe("remmy");
+    expect(trees[1]!.remote).toBe("ubuntu@10.0.3.56");
     expect(trees[1]!.branch).toBe("feat/login");
   });
 
@@ -133,18 +132,22 @@ describe("attachRemoteSession", () => {
   }
 
   it("creates a detached local session with ssh and switches to it", async () => {
-    // has-session fails (session doesn't exist), new-session + switch-client succeed
+    // has-session fails (session doesn't exist), new-session + set-option + list-panes + switch-client succeed
     mockExeca
-      .mockRejectedValueOnce(new Error("no session"))
-      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>)
-      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>);
+      .mockRejectedValueOnce(new Error("no session"))    // has-session
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>)  // new-session
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>)  // set-option
+      .mockResolvedValueOnce({ stdout: "0" } as Awaited<ReturnType<typeof execa>>)  // list-panes (pane alive)
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>);  // switch-client
 
     await attachRemoteSession("ubuntu@10.0.3.56", "issue1966");
     expect(mockExeca).toHaveBeenCalledWith("tmux", ["has-session", "-t", "remote_issue1966"]);
     expect(mockExeca).toHaveBeenCalledWith("tmux", [
       "new-session", "-d", "-s", "remote_issue1966",
-      "ssh", "-t", "ubuntu@10.0.3.56", "tmux", "attach-session", "-t", "issue1966",
+      "ssh", "-tt", "ubuntu@10.0.3.56", "tmux", "attach-session", "-t", "issue1966",
     ]);
+    expect(mockExeca).toHaveBeenCalledWith("tmux", ["set-option", "-t", "remote_issue1966", "remain-on-exit", "on"]);
+    expect(mockExeca).toHaveBeenCalledWith("tmux", ["list-panes", "-t", "remote_issue1966", "-F", "#{pane_dead}"]);
     expect(mockExeca).toHaveBeenCalledWith("tmux", ["switch-client", "-t", "remote_issue1966"]);
   });
 
@@ -161,15 +164,44 @@ describe("attachRemoteSession", () => {
 
   it("creates a detached local session with mosh when shell is mosh", async () => {
     mockExeca
-      .mockRejectedValueOnce(new Error("no session"))
-      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>)
-      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>);
+      .mockRejectedValueOnce(new Error("no session"))    // has-session
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>)  // new-session
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>)  // set-option
+      .mockResolvedValueOnce({ stdout: "0" } as Awaited<ReturnType<typeof execa>>)  // list-panes
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>);  // switch-client
 
     await attachRemoteSession("ubuntu@10.0.3.56", "issue1966", "mosh");
     expect(mockExeca).toHaveBeenCalledWith("tmux", [
       "new-session", "-d", "-s", "remote_issue1966",
-      "mosh", "ubuntu@10.0.3.56", "--", "tmux", "attach-session", "-t", "issue1966",
+      "env", "LC_ALL=en_US.UTF-8", "mosh", "ubuntu@10.0.3.56", "--", "tmux", "attach-session", "-t", "issue1966",
     ]);
+  });
+
+  it("throws when connection exits immediately (dead pane detected)", async () => {
+    mockExeca
+      .mockRejectedValueOnce(new Error("no session"))    // has-session
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>)  // new-session
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>)  // set-option
+      .mockResolvedValueOnce({ stdout: "1" } as Awaited<ReturnType<typeof execa>>)  // list-panes (pane dead)
+      .mockResolvedValueOnce({ stdout: "Connection refused" } as Awaited<ReturnType<typeof execa>>)  // capture-pane
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>);  // kill-session
+
+    await expect(attachRemoteSession("ubuntu@10.0.3.56", "issue1966")).rejects.toThrow(
+      "Connection to ubuntu@10.0.3.56 failed"
+    );
+    expect(mockExeca).toHaveBeenCalledWith("tmux", ["kill-session", "-t", "remote_issue1966"]);
+  });
+
+  it("throws when session dies before list-panes check", async () => {
+    mockExeca
+      .mockRejectedValueOnce(new Error("no session"))    // has-session
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>)  // new-session
+      .mockResolvedValueOnce({} as Awaited<ReturnType<typeof execa>>)  // set-option
+      .mockRejectedValueOnce(new Error("session not found"));  // list-panes fails
+
+    await expect(attachRemoteSession("ubuntu@10.0.3.56", "issue1966")).rejects.toThrow(
+      "Session remote_issue1966 died before we could switch to it"
+    );
   });
 
   it("throws and logs on failure", async () => {
@@ -204,6 +236,6 @@ describe("fetchRemoteWorktrees", () => {
     expect(trees).toHaveLength(1);
     expect(trees[0]!.tmuxSession).toBe("feat-login");
     expect(trees[0]!.tmuxAttached).toBe(false);
-    expect(trees[0]!.remote).toBe("remmy");
+    expect(trees[0]!.remote).toBe("ubuntu@10.0.3.56");
   });
 });

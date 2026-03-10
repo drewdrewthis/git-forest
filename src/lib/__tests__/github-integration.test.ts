@@ -111,7 +111,7 @@ describe("enrichPrDetails", () => {
     const prMap = new Map<string, PrInfo>([
       ["main", {
         number: 1, state: "merged", title: "M", url: "u",
-        reviewDecision: "", unresolvedThreads: 0, checksStatus: "none",
+        reviewDecision: "", unresolvedThreads: 0, checksStatus: "none", hasConflicts: false,
       }],
     ]);
 
@@ -126,7 +126,7 @@ describe("enrichPrDetails", () => {
     const prMap = new Map<string, PrInfo>([
       ["feat", {
         number: 42, state: "open", title: "T", url: "u",
-        reviewDecision: "APPROVED", unresolvedThreads: 0, checksStatus: "none",
+        reviewDecision: "APPROVED", unresolvedThreads: 0, checksStatus: "none", hasConflicts: false,
       }],
     ]);
 
@@ -142,6 +142,7 @@ describe("enrichPrDetails", () => {
           repository: {
             pr0: {
               number: 42,
+              mergeable: "MERGEABLE",
               reviewDecision: "APPROVED",
               reviewThreads: { nodes: [{ isResolved: false }, { isResolved: true }] },
               commits: {
@@ -166,13 +167,43 @@ describe("enrichPrDetails", () => {
     const pr = prMap.get("feat")!;
     expect(pr.unresolvedThreads).toBe(1);
     expect(pr.checksStatus).toBe("pass");
+    expect(pr.hasConflicts).toBe(false);
+  });
+
+  it("sets hasConflicts when mergeable is CONFLICTING", async () => {
+    const prMap = new Map<string, PrInfo>([
+      ["feat", {
+        number: 42, state: "open", title: "T", url: "u",
+        reviewDecision: "APPROVED", unresolvedThreads: 0, checksStatus: "none", hasConflicts: false,
+      }],
+    ]);
+
+    mockedExeca.mockReturnValueOnce(Promise.resolve({
+      stdout: JSON.stringify({
+        data: {
+          repository: {
+            pr0: {
+              number: 42,
+              mergeable: "CONFLICTING",
+              reviewDecision: "APPROVED",
+              reviewThreads: { nodes: [] },
+              commits: { nodes: [{ commit: { statusCheckRollup: { contexts: { nodes: [] } } } }] },
+            },
+          },
+        },
+      }),
+    }) as never);
+
+    await enrichPrDetails(prMap);
+
+    expect(prMap.get("feat")!.hasConflicts).toBe(true);
   });
 
   it("updates reviewDecision from GraphQL response", async () => {
     const prMap = new Map<string, PrInfo>([
       ["feat", {
         number: 42, state: "open", title: "T", url: "u",
-        reviewDecision: "", unresolvedThreads: 0, checksStatus: "none",
+        reviewDecision: "", unresolvedThreads: 0, checksStatus: "none", hasConflicts: false,
       }],
     ]);
 
@@ -183,6 +214,7 @@ describe("enrichPrDetails", () => {
           repository: {
             pr0: {
               number: 42,
+              mergeable: "MERGEABLE",
               reviewDecision: "APPROVED",
               reviewThreads: { nodes: [] },
               commits: { nodes: [{ commit: { statusCheckRollup: { contexts: { nodes: [] } } } }] },
@@ -201,7 +233,7 @@ describe("enrichPrDetails", () => {
     const prMap = new Map<string, PrInfo>([
       ["feat", {
         number: 42, state: "open", title: "T", url: "u",
-        reviewDecision: "", unresolvedThreads: 0, checksStatus: "none",
+        reviewDecision: "", unresolvedThreads: 0, checksStatus: "none", hasConflicts: false,
       }],
     ]);
 

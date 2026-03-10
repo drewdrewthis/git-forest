@@ -29,52 +29,71 @@ describe("loadConfig", () => {
     return mod.loadConfig();
   }
 
-  it("returns empty remotes when config file does not exist", async () => {
+  it("returns no remote when config file does not exist", async () => {
     mockExistsSync.mockReturnValue(false);
     const config = await loadConfig();
-    expect(config).toEqual({ remotes: [] });
+    expect(config.remote).toBeUndefined();
   });
 
-  it("parses valid config with one remote", async () => {
+  it("reads new single-remote config shape", async () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(JSON.stringify({
-      remotes: [{
-        name: "remmy",
+      remote: {
         host: "ubuntu@10.0.3.56",
-        repoPath: "~/langwatch/langwatch-bare",
-      }],
+        repoPath: "/home/ubuntu/repo",
+      },
     }));
 
     const config = await loadConfig();
-    expect(config.remotes).toHaveLength(1);
-    expect(config.remotes[0]).toEqual({
-      name: "remmy",
+    expect(config.remote).toEqual({
       host: "ubuntu@10.0.3.56",
-      repoPath: "~/langwatch/langwatch-bare",
+      repoPath: "/home/ubuntu/repo",
     });
   });
 
-  it("ignores extra fields in remote entries", async () => {
+  it("migrates old remotes array to single remote", async () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(JSON.stringify({
       remotes: [{
-        name: "remmy",
+        name: "ec2",
         host: "ubuntu@10.0.3.56",
-        repoPath: "~/repo",
-        someExtraField: "ignored",
+        repoPath: "/home/ubuntu/repo",
       }],
     }));
 
     const config = await loadConfig();
-    expect(config.remotes).toHaveLength(1);
-    expect(config.remotes[0]!.name).toBe("remmy");
+    expect(config.remote).toEqual({
+      host: "ubuntu@10.0.3.56",
+      repoPath: "/home/ubuntu/repo",
+    });
   });
 
-  it("filters out invalid remote entries", async () => {
+  it("preserves shell option from config", async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(JSON.stringify({
+      remote: {
+        host: "ubuntu@10.0.3.56",
+        repoPath: "/home/ubuntu/repo",
+        shell: "mosh",
+      },
+    }));
+
+    const config = await loadConfig();
+    expect(config.remote?.shell).toBe("mosh");
+  });
+
+  it("returns no remote when config is empty object", async () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(JSON.stringify({}));
+
+    const config = await loadConfig();
+    expect(config.remote).toBeUndefined();
+  });
+
+  it("filters out invalid remote entries in legacy array", async () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(JSON.stringify({
       remotes: [
-        { name: "valid", host: "user@host", repoPath: "~/repo" },
         { name: "missing-host" },
         null,
         "not-an-object",
@@ -83,24 +102,28 @@ describe("loadConfig", () => {
     }));
 
     const config = await loadConfig();
-    expect(config.remotes).toHaveLength(1);
-    expect(config.remotes[0]!.name).toBe("valid");
+    expect(config.remote).toEqual({
+      host: "user@host",
+      repoPath: "~/repo",
+    });
   });
 
-  it("returns empty remotes when remotes is not an array", async () => {
+  it("returns no remote when remotes array has no valid entries", async () => {
     mockExistsSync.mockReturnValue(true);
-    mockReadFileSync.mockReturnValue(JSON.stringify({ remotes: "not-an-array" }));
+    mockReadFileSync.mockReturnValue(JSON.stringify({
+      remotes: [null, "not-an-object"],
+    }));
 
     const config = await loadConfig();
-    expect(config).toEqual({ remotes: [] });
+    expect(config.remote).toBeUndefined();
   });
 
-  it("returns empty remotes on JSON parse error", async () => {
+  it("returns no remote on JSON parse error", async () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue("not valid json {{{");
 
     const config = await loadConfig();
-    expect(config).toEqual({ remotes: [] });
+    expect(config.remote).toBeUndefined();
   });
 
   it("reads config from git dir path", async () => {
