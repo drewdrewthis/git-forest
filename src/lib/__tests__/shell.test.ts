@@ -39,7 +39,26 @@ describe("getShellFunction", () => {
   });
 
   it("includes a restart loop that re-executes git-orchard on exit", () => {
-    expect(fn).toContain("while true; do git-orchard; done");
+    expect(fn).toContain('while true; do git-orchard "$@"; done');
+  });
+
+  it("contains a passthrough case statement for non-interactive subcommands", () => {
+    expect(fn).toContain("case");
+    expect(fn).toContain('git-orchard "$@"');
+  });
+
+  it("bypasses tmux for the --json flag", () => {
+    expect(fn).toContain("--json");
+  });
+
+  it("bypasses tmux for init and upgrade subcommands", () => {
+    expect(fn).toContain("init");
+    expect(fn).toContain("upgrade");
+  });
+
+  it("bypasses tmux for --help and -h flags", () => {
+    expect(fn).toContain("--help");
+    expect(fn).toContain("-h");
   });
 
   it("creates session named orchard", () => {

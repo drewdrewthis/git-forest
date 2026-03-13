@@ -1,8 +1,17 @@
 export function getShellFunction(): string {
   return `# git-orchard - git worktree manager
 orchard() {
+  case "$1" in
+    init|upgrade|--json|--help|-h) git-orchard "$@"; return ;;
+  esac
+  for arg in "$@"; do
+    case "$arg" in
+      --json|--help|-h) git-orchard "$@"; return ;;
+    esac
+  done
+
   local session="orchard"
-  local cmd='while true; do git-orchard; done'
+  local cmd='while true; do git-orchard "$@"; done'
 
   if tmux has-session -t "$session" 2>/dev/null; then
     if [ -n "$TMUX" ]; then
