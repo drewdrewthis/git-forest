@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.6](https://github.com/drewdrewthis/git-orchard/compare/git-orchard-v0.1.5...git-orchard-v0.1.6) (2026-03-13)
+
+
+### Features
+
+* add --json flag for machine-readable worktree output ([186eb95](https://github.com/drewdrewthis/git-orchard/commit/186eb954f52b983ab34e6174b98107330c8b2c29))
+* detect merge conflicts and show as top-priority status badge ([32bea7c](https://github.com/drewdrewthis/git-orchard/commit/32bea7c231652551759ab54910bc3595bc869cf8))
+* remote worktree support with SSH/mosh, transfer, and robust error handling ([a29a2b0](https://github.com/drewdrewthis/git-orchard/commit/a29a2b04d683822b2e3f9d46ec0c16b8ec6895e1))
+* use repo:branch format for tmux session names and harden remote ops ([c492704](https://github.com/drewdrewthis/git-orchard/commit/c492704fc9c34cfe4d3aeecfac55c89238e920be))
+
+
+### Bug Fixes
+
+* build dist and add hasConflicts to test fixtures ([db826a6](https://github.com/drewdrewthis/git-orchard/commit/db826a60a663237aa87247a2dd0d065b16600ea6))
+* pass remote command as spread args to tmux new-session ([0dc710c](https://github.com/drewdrewthis/git-orchard/commit/0dc710cbd9ad2e5626c180f2a133aa1a2a1f74dc))
+* show row numbers for all worktree items, not just 1-9 ([8be540e](https://github.com/drewdrewthis/git-orchard/commit/8be540ecadb0b3d1664d2403309d7ca2e9be5ba8))
+
+
+### Performance Improvements
+
+* eliminate render-path bottlenecks in menu UI ([92fa729](https://github.com/drewdrewthis/git-orchard/commit/92fa729f1735918205416a30d0660bf8ea584d92))
+
 ## [Unreleased]
 
 ### Features
