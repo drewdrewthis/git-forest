@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/drewdrewthis/git-orchard/compare/git-orchard-v0.1.6...git-orchard-v0.1.7) (2026-03-13)
+
+
+### Bug Fixes
+
+* orchard shell function passes --json, init, upgrade directly without tmux ([d52462c](https://github.com/drewdrewthis/git-orchard/commit/d52462c84051642f6c89947e397ea4102a78dbdd))
+
 ## [0.1.6](https://github.com/drewdrewthis/git-orchard/compare/git-orchard-v0.1.5...git-orchard-v0.1.6) (2026-03-13)
 
 
