@@ -96,7 +96,7 @@ export function applyIssueStates(
 }
 
 function withStaleRemotes(prev: Worktree[], newLocals: Worktree[]): Worktree[] {
-  return [...newLocals, ...prev.filter((t) => t.remote)];
+  return [...newLocals, ...prev.filter((t) => t.remote).map((t) => ({ ...t, prLoading: true }))];
 }
 
 /**

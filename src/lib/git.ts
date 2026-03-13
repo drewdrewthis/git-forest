@@ -1,11 +1,18 @@
 import { execaSync, execa } from "execa";
-import { resolve } from "node:path";
+import { resolve, basename } from "node:path";
 import { log } from "./log.js";
 import type { Worktree } from "./types.js";
 
 function findRepoRoot(): string {
   const { stdout } = execaSync("git", ["rev-parse", "--show-toplevel"]);
   return stdout.trim();
+}
+
+/**
+ * Returns the directory name of the git repo root (e.g. "git-orchard" from "/Users/USER/workspace/git-orchard").
+ */
+export function getRepoName(): string {
+  return basename(findRepoRoot());
 }
 
 function resolveMainWorktreePath(gitDir: string): string {

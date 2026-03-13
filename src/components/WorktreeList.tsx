@@ -14,6 +14,7 @@ import { attachRemoteSession, createRemoteSession, captureRemotePaneContent } fr
 import { log } from "../lib/log.js";
 import type { Worktree } from "../lib/types.js";
 import { execaSync } from "execa";
+import { basename } from "node:path";
 
 interface Props {
   worktrees: Worktree[];
@@ -43,8 +44,11 @@ export function WorktreeList({
   const remoteConfig: RemoteConfig | undefined = configRef.current.remote;
 
   const repoRootRef = useRef<string | null>(null);
+  const repoNameRef = useRef<string>("orchard");
   useEffect(() => {
-    repoRootRef.current = execaSync("git", ["rev-parse", "--show-toplevel"]).stdout.trim();
+    const root = execaSync("git", ["rev-parse", "--show-toplevel"]).stdout.trim();
+    repoRootRef.current = root;
+    repoNameRef.current = basename(root);
   }, []);
 
   const [termSize, setTermSize] = useState({
@@ -106,7 +110,7 @@ export function WorktreeList({
         if (selected.remote) {
           const remote = configRef.current?.remote;
           if (remote) {
-            const sessionName = selected.tmuxSession ?? deriveSessionName(selected.branch, selected.path);
+            const sessionName = selected.tmuxSession ?? deriveSessionName(repoNameRef.current, selected.branch, selected.path);
             const attach = selected.tmuxSession
               ? Promise.resolve()
               : createRemoteSession(remote.host, sessionName, selected.path);
@@ -119,7 +123,7 @@ export function WorktreeList({
               });
           }
         } else {
-          const sessionName = deriveSessionName(selected.branch, selected.path);
+          const sessionName = deriveSessionName(repoNameRef.current, selected.branch, selected.path);
           switchToSession({
             sessionName,
             worktreePath: selected.path,

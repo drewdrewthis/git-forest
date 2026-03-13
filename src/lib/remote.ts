@@ -64,8 +64,16 @@ export async function killRemoteTmuxSession(host: string, sessionName: string): 
 }
 
 export async function removeRemoteWorktree(host: string, repoPath: string, worktreePath: string): Promise<void> {
-  await sshExec(host, `cd ${repoPath} && git worktree remove ${worktreePath} --force`);
-  log.info(`remote: removed worktree ${worktreePath}`);
+  try {
+    await sshExec(host, `cd ${repoPath} && git worktree remove ${worktreePath} --force`);
+    log.info(`remote: removed worktree ${worktreePath}`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes("is not a working tree")) throw err;
+    log.warn(`remote: worktree ${worktreePath} not in registry, pruning and removing directory`);
+    await sshExec(host, `cd ${repoPath} && git worktree prune`);
+    await sshExec(host, `rm -rf ${worktreePath}`);
+  }
 }
 
 export async function removeRemoteRegistryEntry(host: string, sessionName: string): Promise<void> {
@@ -117,7 +125,7 @@ export async function attachRemoteSession(host: string, sessionName: string, she
   // Use -tt to force PTY allocation — ssh may refuse a single -t when
   // its stdin is not a terminal (which is the case inside tmux new-session -d).
   const remoteCmdArgs = shell === "mosh"
-    ? ["env", "LC_ALL=en_US.UTF-8", "mosh", host, "--", "tmux", "attach-session", "-t", sessionName]
+    ? ["env", "LC_ALL=en_US.UTF-8", "mosh", "--predict=always", host, "--", "tmux", "attach-session", "-t", sessionName]
     : ["ssh", "-tt", host, "tmux", "attach-session", "-t", sessionName];
   log.info(`attachRemoteSession: ${remoteCmdArgs.join(" ")}`);
   try {

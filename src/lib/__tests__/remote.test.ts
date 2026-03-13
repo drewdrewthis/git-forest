@@ -95,6 +95,51 @@ describe("listRemoteTmuxSessions", () => {
   });
 });
 
+describe("removeRemoteWorktree", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function removeRemoteWorktree(...args: Parameters<typeof import("../remote.js")["removeRemoteWorktree"]>) {
+    const mod = await import("../remote.js");
+    return mod.removeRemoteWorktree(...args);
+  }
+
+  it("calls git worktree remove --force via SSH", async () => {
+    mockExeca.mockResolvedValueOnce({ stdout: "" } as Awaited<ReturnType<typeof execa>>);
+
+    await removeRemoteWorktree("ubuntu@10.0.3.56", "~/repo", "/home/ubuntu/worktrees/feat");
+
+    expect(mockExeca).toHaveBeenCalledWith("ssh", expect.arrayContaining([
+      "cd ~/repo && git worktree remove /home/ubuntu/worktrees/feat --force",
+    ]));
+  });
+
+  it("falls back to prune and rm -rf when git reports 'is not a working tree'", async () => {
+    mockExeca
+      .mockRejectedValueOnce(new Error("fatal: '/home/ubuntu/worktrees/feat' is not a working tree"))
+      .mockResolvedValueOnce({ stdout: "" } as Awaited<ReturnType<typeof execa>>)
+      .mockResolvedValueOnce({ stdout: "" } as Awaited<ReturnType<typeof execa>>);
+
+    await removeRemoteWorktree("ubuntu@10.0.3.56", "~/repo", "/home/ubuntu/worktrees/feat");
+
+    expect(mockExeca).toHaveBeenCalledWith("ssh", expect.arrayContaining([
+      "cd ~/repo && git worktree prune",
+    ]));
+    expect(mockExeca).toHaveBeenCalledWith("ssh", expect.arrayContaining([
+      "rm -rf /home/ubuntu/worktrees/feat",
+    ]));
+  });
+
+  it("re-throws errors that are not 'is not a working tree'", async () => {
+    mockExeca.mockRejectedValueOnce(new Error("Connection refused"));
+
+    await expect(
+      removeRemoteWorktree("ubuntu@10.0.3.56", "~/repo", "/home/ubuntu/worktrees/feat")
+    ).rejects.toThrow("Connection refused");
+  });
+});
+
 describe("createRemoteSession", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -173,7 +218,7 @@ describe("attachRemoteSession", () => {
     await attachRemoteSession("ubuntu@10.0.3.56", "issue1966", "mosh");
     expect(mockExeca).toHaveBeenCalledWith("tmux", [
       "new-session", "-d", "-s", "remote_issue1966",
-      "env", "LC_ALL=en_US.UTF-8", "mosh", "ubuntu@10.0.3.56", "--", "tmux", "attach-session", "-t", "issue1966",
+      "env", "LC_ALL=en_US.UTF-8", "mosh", "--predict=always", "ubuntu@10.0.3.56", "--", "tmux", "attach-session", "-t", "issue1966",
     ]);
   });
 

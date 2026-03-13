@@ -55,6 +55,30 @@ describe("findSessionForWorktree", () => {
     expect(result).toMatchObject({ name: "feat-login" });
   });
 
+  it("matches new-format 'repo:branch' session by branch suffix", () => {
+    const newFormatSessions: TmuxSession[] = [
+      { name: "langwatch:feat-login", path: "/tmp/y", attached: false },
+    ];
+    const result = findSessionForWorktree(
+      newFormatSessions,
+      "/some/path",
+      "feat/login"
+    );
+    expect(result).toMatchObject({ name: "langwatch:feat-login" });
+  });
+
+  it("matches new-format 'repo:branch' session by directory suffix", () => {
+    const newFormatSessions: TmuxSession[] = [
+      { name: "langwatch:feat-login", path: "/tmp/y", attached: false },
+    ];
+    const result = findSessionForWorktree(
+      newFormatSessions,
+      "/some/path/feat-login",
+      null
+    );
+    expect(result).toMatchObject({ name: "langwatch:feat-login" });
+  });
+
   it("returns null when no match", () => {
     const result = findSessionForWorktree(
       sessions,
@@ -104,16 +128,20 @@ const openPr: PrInfo = {
 };
 
 describe("deriveSessionName", () => {
-  it("replaces slashes with dashes for branch names", () => {
-    expect(deriveSessionName("feat/new-login", "/repo/wt")).toBe("feat-new-login");
+  it("prefixes with repo name and replaces slashes in branch", () => {
+    expect(deriveSessionName("myrepo", "feat/new-login", "/repo/wt")).toBe("myrepo:feat-new-login");
   });
 
   it("uses last path segment when branch is null", () => {
-    expect(deriveSessionName(null, "/repo/my-worktree")).toBe("my-worktree");
+    expect(deriveSessionName("myrepo", null, "/repo/my-worktree")).toBe("myrepo:my-worktree");
   });
 
-  it("falls back to orchard for empty path", () => {
-    expect(deriveSessionName(null, "")).toBe("orchard");
+  it("falls back to orchard suffix for empty path when branch is null", () => {
+    expect(deriveSessionName("myrepo", null, "")).toBe("myrepo:orchard");
+  });
+
+  it("includes repo name for plain branch names", () => {
+    expect(deriveSessionName("langwatch", "main", "/worktrees/main")).toBe("langwatch:main");
   });
 });
 

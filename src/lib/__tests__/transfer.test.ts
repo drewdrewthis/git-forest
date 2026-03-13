@@ -17,8 +17,8 @@ vi.mock("../git.js", () => ({
 
 vi.mock("../tmux.js", () => ({
   killTmuxSession: vi.fn(),
-  deriveSessionName: vi.fn((branch: string | null, _path: string) =>
-    branch ? branch.replace(/\//g, "-") : "orchard",
+  deriveSessionName: vi.fn((repoName: string, branch: string | null, _path: string) =>
+    branch ? `${repoName}:${branch.replace(/\//g, "-")}` : `${repoName}:orchard`,
   ),
 }));
 
@@ -400,7 +400,7 @@ describe("pullToLocal", () => {
       "new-session",
       "-d",
       "-s",
-      "feat-login",
+      "project:feat-login",
       "-c",
       "/Users/dev/worktrees/worktree-feat-login",
     ]);

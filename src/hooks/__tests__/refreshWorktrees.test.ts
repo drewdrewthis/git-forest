@@ -176,6 +176,7 @@ describe("refreshWorktrees", () => {
       const staleInFirst = firstState.find((t) => t.path === "/remote/stale");
       expect(staleInFirst).toBeDefined();
       expect(staleInFirst!.remote).toBe("oldserver");
+      expect(staleInFirst!.prLoading).toBe(true);
     });
   });
 

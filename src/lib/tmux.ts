@@ -42,14 +42,21 @@ export function findSessionForWorktree(
   const byPath = sessions.find((s) => s.path === worktreePath);
   if (byPath) return byPath;
 
-  // Match by session name containing the branch name or last dir segment
+  // Match by session name: support both new "repo:branch" format and legacy bare branch/dir names
   const dirName = worktreePath.split("/").pop() || "";
-  const byName = sessions.find(
-    (s) =>
+  const branchSlug = branch ? branch.replace(/\//g, "-") : null;
+  const byName = sessions.find((s) => {
+    // New format: "repo:branch" — extract the suffix after the last ":"
+    const colonIdx = s.name.lastIndexOf(":");
+    const nameSuffix = colonIdx >= 0 ? s.name.slice(colonIdx + 1) : s.name;
+    return (
       s.name === dirName ||
+      nameSuffix === dirName ||
       (branch && s.name === branch) ||
-      (branch && s.name === branch.replace(/\//g, "-"))
-  );
+      (branchSlug && s.name === branchSlug) ||
+      (branchSlug && nameSuffix === branchSlug)
+    );
+  });
   return byName || null;
 }
 
@@ -78,12 +85,19 @@ export function capturePaneContent(sessionName: string, lines: number): Cancella
   return { promise, kill: () => subprocess.kill() };
 }
 
+/**
+ * Derive a tmux session name in the format "repoName:branch" (or "repoName:dirName" for detached HEAD).
+ * Uses `:` as the separator between repo name and branch slug.
+ */
 export function deriveSessionName(
+  repoName: string,
   branch: string | null,
   worktreePath: string
 ): string {
-  if (branch) return branch.replace(/\//g, "-");
-  return worktreePath.split("/").pop() || "orchard";
+  const suffix = branch
+    ? branch.replace(/\//g, "-")
+    : worktreePath.split("/").pop() || "orchard";
+  return `${repoName}:${suffix}`;
 }
 
 export interface SwitchToSessionOptions {

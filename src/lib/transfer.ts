@@ -1,4 +1,5 @@
 import path from "node:path";
+import { basename } from "node:path";
 import { execa } from "execa";
 import { log } from "./log.js";
 import { sshExec } from "./remote.js";
@@ -60,7 +61,7 @@ export async function pushToRemote(
   const branch = worktree.branch;
   const cwd = worktree.path;
   const remoteWorktreePath = deriveRemoteWorktreePath(remote.repoPath, branch);
-  const sessionName = deriveSessionName(branch, remoteWorktreePath);
+  const sessionName = deriveSessionName(basename(remote.repoPath), branch, remoteWorktreePath);
 
   // Step 1: Commit WIP (skip if already a WIP handoff commit)
   onStep("Committing changes...");
@@ -140,7 +141,7 @@ export async function pullToLocal(
   const branch = worktree.branch;
   const remoteWorktreePath = worktree.path;
   const localWorktreePath = deriveLocalWorktreePath(repoRoot, branch);
-  const sessionName = deriveSessionName(branch, localWorktreePath);
+  const sessionName = deriveSessionName(basename(repoRoot), branch, localWorktreePath);
 
   // Step 1: Commit remote changes
   onStep("Committing remote changes...");
