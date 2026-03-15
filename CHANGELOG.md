@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/drewdrewthis/git-orchard/compare/git-orchard-v0.1.7...git-orchard-v0.1.8) (2026-03-15)
+
+
+### Features
+
+* tmux keybinding lifecycle management with save/restore ([7dc54e0](https://github.com/drewdrewthis/git-orchard/commit/7dc54e079c3d1cfac77b72eb07d66dc1dfa16a1f))
+
 ## [0.1.7](https://github.com/drewdrewthis/git-orchard/compare/git-orchard-v0.1.6...git-orchard-v0.1.7) (2026-03-13)
 
 
